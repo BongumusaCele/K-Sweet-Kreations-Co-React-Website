@@ -6,7 +6,7 @@ test('public catalogue, cart calculations and account gate', async ({
   await expect(
     page.getByRole('heading', { name: /Celebrate life/ }),
   ).toBeVisible()
-  await page.getByRole('button', { name: 'Explore our cakes ↗' }).click()
+  await page.getByRole('button', { name: 'Explore our cakes' }).click()
   await page.getByRole('button', { name: 'Add to cart' }).first().click()
   await page.getByRole('button', { name: 'Cart, 1 items' }).click()
   await expect(
