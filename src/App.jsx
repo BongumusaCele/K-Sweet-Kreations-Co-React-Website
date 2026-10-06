@@ -1,56 +1,662 @@
 ﻿import { useEffect, useState } from 'react'
 import { money } from './data'
 import { usePreviewStore } from './store'
-import { Account, Cart, Checkout, Builder, Orders, Contact, Empty } from './Customer'
+import {
+  Account,
+  Cart,
+  Checkout,
+  Builder,
+  Orders,
+  Contact,
+  Empty,
+} from './Customer'
 import Portal from './Portal'
 import Dialog from './Dialog'
-import {Gallery,About,Reviews} from './Content'
+import { Gallery, About, Reviews } from './Content'
 import './App.css'
 const year = new Date().getFullYear()
 
-export default function App(){
- const [store,setStore]=usePreviewStore()
- const products=store.products.filter(p=>p.active)
- const [user,setUser]=useState(null),[pending,setPending]=useState(''),[role,setRole]=useState('Customer')
- const [page,setPage]=useState(location.hash.slice(1)||'home'),[category,setCategory]=useState('All'),[search,setSearch]=useState(''),[sort,setSort]=useState('featured'),[selected,setSelected]=useState(null),[cart,setCart]=useState([]),[notice,setNotice]=useState('')
- useEffect(()=>{const change=()=>{setPage(location.hash.slice(1)||'home');setSelected(null);window.scrollTo(0,0)};window.addEventListener('hashchange',change);return ()=>window.removeEventListener('hashchange',change)},[])
- function go(p){location.hash=p;setPage(p);setSelected(null);window.scrollTo(0,0)}
- function requireAccount(p){setPending(p);go('account')}
- function add(p){setCart(items=>items.some(i=>i.id===p.id)?items.map(i=>i.id===p.id?{...i,quantity:i.quantity+1}:i):[...items,{...p,quantity:1}]);setNotice(`${p.name} added to your cart.`)}
- const count=cart.reduce((n,i)=>n+i.quantity,0)
- const filtered=products.filter(p=>(category==='All'||p.category===category)&&p.name.toLowerCase().includes(search.toLowerCase())).sort((a,b)=>sort==='low'?a.price-b.price:sort==='high'?b.price-a.price:a.id-b.id)
- const card=p=><article className="product-card" key={p.id}><button className="product-image" onClick={()=>setSelected(p)} aria-label={`View ${p.name}`}><img src={p.image} alt={p.name} loading="lazy"/><span className="tag">{p.category}</span></button><div className="product-body"><button className="product-name" onClick={()=>setSelected(p)}>{p.name}</button><p>{p.description}</p><div className="price-row"><strong>{money(p.price)}</strong><span>{p.servings} servings</span></div><button className="add-button" onClick={()=>add(p)}>Add to cart <Icon name="bag"/></button></div></article>
- if(role!=='Customer')return <><Portal store={store} setStore={setStore} role={role} setRole={setRole} notify={setNotice}/>{notice&&<div className="notice" role="status">{notice}<button onClick={()=>setNotice('')} aria-label="Dismiss notification">×</button></div>}</>
- return <><div className="preview-bar"><span><b>Website preview</b> · Sample content. No real accounts or payments. Use sample details only.</span><label>View as <select aria-label="Preview role" value={role} onChange={e=>setRole(e.target.value)}><option>Customer</option><option>Admin</option><option>Staff</option></select></label></div><div className="announcement">Made with love. Collected with a smile. <span>Collection only · Lenasia South</span></div><header className="site-header"><div className="header-inner"><Brand onClick={()=>go('home')}/><nav aria-label="Main navigation">{[['home','Home'],['shop','Our cakes'],['gallery','Gallery'],['builder','Custom cake'],['tracking','My orders'],['contact','Contact']].map(([key,label])=><button key={key} className={page===key?'active':''} onClick={()=>go(key)}>{label}</button>)}</nav><div className="header-actions"><button aria-label="Search products" onClick={()=>go('shop')}><Icon name="search"/></button><button aria-label={`Cart, ${count} items`} onClick={()=>go('cart')} className="cart-icon"><Icon name="bag"/>{count>0&&<span>{count}</span>}</button><button aria-label="My account" onClick={()=>go('account')}><Icon name="user"/></button></div></div></header>
- {notice&&<div className="notice" role="status">{notice}<button onClick={()=>setNotice('')} aria-label="Dismiss notification">×</button></div>}
- {page==='home'&&<><section className="hero"><div><p className="eyebrow">BAKED WITH LOVE ♡</p><h1>Celebrate life,<br/><em>one sweet slice</em><br/>at a time.</h1><p>Beautiful cakes, thoughtful details and a little magic.<br/>Made for the moments you’ll always remember.</p><div className="button-row"><button className="button dark" onClick={()=>go('shop')}>Explore our cakes ↗</button><button className="button light" onClick={()=>go('builder')}>Create your cake</button></div><p className="hero-note">✧ Freshly baked in Lenasia South</p></div><div className="hero-photo"><img src="/images/chocolate.jpg" alt="Chocolate celebration cake with rich frosting"/><div className="photo-note">♡ <span>A little joy.<br/><strong>A lot of love.</strong></span></div></div></section><section className="section"><SectionTitle title="Made for your sweet moments" eyebrow="THE SWEETEST FAVOURITES" go={()=>go('shop')}/><div className="product-grid">{products.slice(0,4).map(card)}</div></section><section className="custom-section"><img src="/images/celebration.jpg" alt="A carefully decorated celebration cake" loading="lazy"/><div><p className="eyebrow">YOUR IDEA. OUR SWEET TOUCH.</p><h2>A cake as unique<br/>as your celebration.</h2><p>A birthday wish, a special milestone or just because. Tell us what you have in mind and we’ll create something that feels like you.</p><div className="steps-mini"><span><b>01</b>Share your idea</span><span><b>02</b>Get a personal quote</span><span><b>03</b>Collect & celebrate</span></div><button className="button dark" onClick={()=>go('builder')}>Request a custom cake ↗</button><small>Every custom cake is quoted personally by our bakery.</small></div></section><section className="section values-grid">{[['sparkle','Fresh ingredients','Thoughtfully chosen ingredients, freshly baked for you.'],['heart','Made with love','Care in every layer and a personal touch in every detail.'],['cake','Your celebration','From little moments to life’s biggest milestones.'],['bag','Easy collection','Pick up your sweet creation at an agreed time.']].map(([icon,title,text])=><article key={title}><Icon name={icon}/><h3>{title}</h3><p>{text}</p></article>)}</section><section className="section faq-section"><p className="eyebrow">A LITTLE HELP</p><h2>Before you take a bite</h2><Faq/></section><section className="sweet-banner"><div><h2>Something special in mind?</h2><p>Let’s turn your cake idea into a sweet celebration.</p></div><button className="button light" onClick={()=>go('builder')}>Let’s create it ↗</button></section></>}
- {page==='shop'&&<main className="section page-section"><Breadcrumb page="Our cakes" go={()=>go('home')}/><p className="eyebrow">A SLICE OF HAPPINESS</p><h1>Our cakes & sweet treats</h1><p className="muted">Discover a little something for every celebration. Preview products and prices.</p><div className="shop-toolbar"><div className="tabs">{['All','Cakes','Cupcakes','Desserts'].map(c=><button className={category===c?'selected':''} onClick={()=>setCategory(c)} key={c}>{c==='All'?'All treats':c}</button>)}</div><div className="filter-controls"><input placeholder="Find your favourite" value={search} onChange={e=>setSearch(e.target.value)} aria-label="Search products"/><select value={sort} onChange={e=>setSort(e.target.value)} aria-label="Sort products"><option value="featured">Featured</option><option value="low">Price: low to high</option><option value="high">Price: high to low</option></select></div></div><div className="product-grid">{filtered.map(card)}</div>{!filtered.length&&<div className="empty-state"><h2>No treats found</h2><p>Try another name or category.</p><button className="button dark" onClick={()=>{setSearch('');setCategory('All')}}>Clear filters</button></div>}<p className="collection-note">♡ All orders are collection only. Custom cakes are quoted individually.</p></main>}
- {!['home','shop'].includes(page)&&<main className="section page-section"><Breadcrumb page={page} go={()=>go('home')}/>
- {page==='cart'&&<Cart cart={cart} setCart={setCart} store={store} go={go} user={user} requireAccount={requireAccount}/>}
- {page==='account'&&<Account user={user} setUser={setUser} go={go} pending={pending} notify={setNotice}/>}
- {['builder','checkout','tracking'].includes(page)&&!user&&<Empty title="Your sweet space starts here" text="Sign in to request a quote, place an order and keep track of your celebrations." action={()=>requireAccount(page)} label="Sign in or create an account"/>}
- {page==='builder'&&user&&<><h1>Your cake. Your celebration.</h1><p className="muted">Keep it simple. Share your idea and we’ll prepare a personal quotation.</p><Builder store={store} setStore={setStore} user={user} go={go} notify={setNotice}/></>}
- {page==='checkout'&&user&&<><h1>A little closer to something sweet</h1><Checkout cart={cart} setCart={setCart} store={store} setStore={setStore} user={user} go={go} notify={setNotice}/></>}
- {page==='tracking'&&user&&<Orders store={store} setStore={setStore} user={user} notify={setNotice}/>}
- {page==='gallery'&&<Gallery/>}
- {page==='about'&&<About go={go}/>} 
- {page==='reviews'&&<Reviews store={store} setStore={setStore} user={user} requireAccount={requireAccount} notify={setNotice}/>} 
- {page==='contact'&&<Contact store={store} setStore={setStore} user={user} notify={setNotice}/>}
- {!['cart','account','builder','checkout','tracking','contact','gallery','about','reviews'].includes(page)&&<Empty title="This page isn’t here" action={()=>go('home')} label="Back to home"/>}
- </main>}
- <footer><div className="footer-grid"><div><Brand onClick={()=>go('home')}/><p>Making life sweeter,<br/>one celebration at a time.</p></div><div><h3>Explore</h3>{[['shop','Our cakes'],['builder','Custom cakes'],['about','About our bakery'],['gallery','Gallery'],['reviews','Customer feedback']].map(([key,label])=><button key={label} onClick={()=>go(key)}>{label}</button>)}</div><div><h3>A little help</h3><button onClick={()=>go('tracking')}>My orders</button><button onClick={()=>go('contact')}>Contact us</button><button onClick={()=>go('account')}>My account</button></div><div><h3>Come collect a little joy</h3><p>Lenasia South, Migson Manor</p><p>Mon–Fri · 09:00–17:00<br/>Saturday · 09:00–15:00<br/>Closed Sundays</p><span className="footer-pill">Collection only</span></div></div><div className="footer-bottom"><span>© {year} K Sweet Kreations Co</span><span>Made with love ♡</span></div></footer>
- {selected&&<Dialog className="product-modal" labelledBy="product-title" onClose={()=>setSelected(null)}><img src={selected.image} alt={selected.name}/><div><p className="eyebrow">{selected.category}</p><h2 id="product-title">{selected.name}</h2><p>{selected.description}</p><p>{selected.size} · Approximately {selected.servings} servings</p><strong className="large-price">{money(selected.price)}</strong><p className="muted">Collection only. Discuss allergies with the bakery before ordering.</p><button className="button dark" onClick={()=>{add(selected);setSelected(null)}}>Add to cart</button></div></Dialog>}
- </>
+export default function App() {
+  const [store, setStore] = usePreviewStore()
+  const products = store.products.filter((p) => p.active)
+  const [user, setUser] = useState(null),
+    [pending, setPending] = useState(''),
+    [role, setRole] = useState('Customer')
+  const [page, setPage] = useState(location.hash.slice(1) || 'home'),
+    [category, setCategory] = useState('All'),
+    [search, setSearch] = useState(''),
+    [sort, setSort] = useState('featured'),
+    [selected, setSelected] = useState(null),
+    [cart, setCart] = useState([]),
+    [notice, setNotice] = useState('')
+  useEffect(() => {
+    const change = () => {
+      setPage(location.hash.slice(1) || 'home')
+      setSelected(null)
+      window.scrollTo(0, 0)
+    }
+    window.addEventListener('hashchange', change)
+    return () => window.removeEventListener('hashchange', change)
+  }, [])
+  function go(p) {
+    location.hash = p
+    setPage(p)
+    setSelected(null)
+    window.scrollTo(0, 0)
+  }
+  function requireAccount(p) {
+    setPending(p)
+    go('account')
+  }
+  function add(p) {
+    setCart((items) =>
+      items.some((i) => i.id === p.id)
+        ? items.map((i) =>
+            i.id === p.id ? { ...i, quantity: i.quantity + 1 } : i,
+          )
+        : [...items, { ...p, quantity: 1 }],
+    )
+    setNotice(`${p.name} added to your cart.`)
+  }
+  const count = cart.reduce((n, i) => n + i.quantity, 0)
+  const filtered = products
+    .filter(
+      (p) =>
+        (category === 'All' || p.category === category) &&
+        p.name.toLowerCase().includes(search.toLowerCase()),
+    )
+    .sort((a, b) =>
+      sort === 'low'
+        ? a.price - b.price
+        : sort === 'high'
+          ? b.price - a.price
+          : a.id - b.id,
+    )
+  const card = (p) => (
+    <article className="product-card" key={p.id}>
+      <button
+        className="product-image"
+        onClick={() => setSelected(p)}
+        aria-label={`View ${p.name}`}
+      >
+        <img src={p.image} alt={p.name} loading="lazy" />
+        <span className="tag">{p.category}</span>
+      </button>
+      <div className="product-body">
+        <button className="product-name" onClick={() => setSelected(p)}>
+          {p.name}
+        </button>
+        <p>{p.description}</p>
+        <div className="price-row">
+          <strong>{money(p.price)}</strong>
+          <span>{p.servings} servings</span>
+        </div>
+        <button className="add-button" onClick={() => add(p)}>
+          Add to cart <Icon name="bag" />
+        </button>
+      </div>
+    </article>
+  )
+  if (role !== 'Customer')
+    return (
+      <>
+        <Portal
+          store={store}
+          setStore={setStore}
+          role={role}
+          setRole={setRole}
+          notify={setNotice}
+        />
+        {notice && (
+          <div className="notice" role="status">
+            {notice}
+            <button
+              onClick={() => setNotice('')}
+              aria-label="Dismiss notification"
+            >
+              ×
+            </button>
+          </div>
+        )}
+      </>
+    )
+  return (
+    <>
+      <div className="preview-bar">
+        <span>
+          <b>Website preview</b> · Sample content. No real accounts or payments.
+          Use sample details only.
+        </span>
+        <label>
+          View as{' '}
+          <select
+            aria-label="Preview role"
+            value={role}
+            onChange={(e) => setRole(e.target.value)}
+          >
+            <option>Customer</option>
+            <option>Admin</option>
+            <option>Staff</option>
+          </select>
+        </label>
+      </div>
+      <div className="announcement">
+        Made with love. Collected with a smile.{' '}
+        <span>Collection only · Lenasia South</span>
+      </div>
+      <header className="site-header">
+        <div className="header-inner">
+          <Brand onClick={() => go('home')} />
+          <nav aria-label="Main navigation">
+            {[
+              ['home', 'Home'],
+              ['shop', 'Our cakes'],
+              ['gallery', 'Gallery'],
+              ['builder', 'Custom cake'],
+              ['tracking', 'My orders'],
+              ['contact', 'Contact'],
+            ].map(([key, label]) => (
+              <button
+                key={key}
+                className={page === key ? 'active' : ''}
+                onClick={() => go(key)}
+              >
+                {label}
+              </button>
+            ))}
+          </nav>
+          <div className="header-actions">
+            <button aria-label="Search products" onClick={() => go('shop')}>
+              <Icon name="search" />
+            </button>
+            <button
+              aria-label={`Cart, ${count} items`}
+              onClick={() => go('cart')}
+              className="cart-icon"
+            >
+              <Icon name="bag" />
+              {count > 0 && <span>{count}</span>}
+            </button>
+            <button aria-label="My account" onClick={() => go('account')}>
+              <Icon name="user" />
+            </button>
+          </div>
+        </div>
+      </header>
+      {notice && (
+        <div className="notice" role="status">
+          {notice}
+          <button
+            onClick={() => setNotice('')}
+            aria-label="Dismiss notification"
+          >
+            ×
+          </button>
+        </div>
+      )}
+      {page === 'home' && (
+        <>
+          <section className="hero">
+            <div>
+              <p className="eyebrow">BAKED WITH LOVE ♡</p>
+              <h1>
+                Celebrate life,
+                <br />
+                <em>one sweet slice</em>
+                <br />
+                at a time.
+              </h1>
+              <p>
+                Beautiful cakes, thoughtful details and a little magic.
+                <br />
+                Made for the moments you’ll always remember.
+              </p>
+              <div className="button-row">
+                <button className="button dark" onClick={() => go('shop')}>
+                  Explore our cakes ↗
+                </button>
+                <button className="button light" onClick={() => go('builder')}>
+                  Create your cake
+                </button>
+              </div>
+              <p className="hero-note">✧ Freshly baked in Lenasia South</p>
+            </div>
+            <div className="hero-photo">
+              <img
+                src="/images/chocolate.jpg"
+                alt="Chocolate celebration cake with rich frosting"
+              />
+              <div className="photo-note">
+                ♡{' '}
+                <span>
+                  A little joy.
+                  <br />
+                  <strong>A lot of love.</strong>
+                </span>
+              </div>
+            </div>
+          </section>
+          <section className="section">
+            <SectionTitle
+              title="Made for your sweet moments"
+              eyebrow="THE SWEETEST FAVOURITES"
+              go={() => go('shop')}
+            />
+            <div className="product-grid">{products.slice(0, 4).map(card)}</div>
+          </section>
+          <section className="custom-section">
+            <img
+              src="/images/celebration.jpg"
+              alt="A carefully decorated celebration cake"
+              loading="lazy"
+            />
+            <div>
+              <p className="eyebrow">YOUR IDEA. OUR SWEET TOUCH.</p>
+              <h2>
+                A cake as unique
+                <br />
+                as your celebration.
+              </h2>
+              <p>
+                A birthday wish, a special milestone or just because. Tell us
+                what you have in mind and we’ll create something that feels like
+                you.
+              </p>
+              <div className="steps-mini">
+                <span>
+                  <b>01</b>Share your idea
+                </span>
+                <span>
+                  <b>02</b>Get a personal quote
+                </span>
+                <span>
+                  <b>03</b>Collect & celebrate
+                </span>
+              </div>
+              <button className="button dark" onClick={() => go('builder')}>
+                Request a custom cake ↗
+              </button>
+              <small>
+                Every custom cake is quoted personally by our bakery.
+              </small>
+            </div>
+          </section>
+          <section className="section values-grid">
+            {[
+              [
+                'sparkle',
+                'Fresh ingredients',
+                'Thoughtfully chosen ingredients, freshly baked for you.',
+              ],
+              [
+                'heart',
+                'Made with love',
+                'Care in every layer and a personal touch in every detail.',
+              ],
+              [
+                'cake',
+                'Your celebration',
+                'From little moments to life’s biggest milestones.',
+              ],
+              [
+                'bag',
+                'Easy collection',
+                'Pick up your sweet creation at an agreed time.',
+              ],
+            ].map(([icon, title, text]) => (
+              <article key={title}>
+                <Icon name={icon} />
+                <h3>{title}</h3>
+                <p>{text}</p>
+              </article>
+            ))}
+          </section>
+          <section className="section faq-section">
+            <p className="eyebrow">A LITTLE HELP</p>
+            <h2>Before you take a bite</h2>
+            <Faq />
+          </section>
+          <section className="sweet-banner">
+            <div>
+              <h2>Something special in mind?</h2>
+              <p>Let’s turn your cake idea into a sweet celebration.</p>
+            </div>
+            <button className="button light" onClick={() => go('builder')}>
+              Let’s create it ↗
+            </button>
+          </section>
+        </>
+      )}
+      {page === 'shop' && (
+        <main className="section page-section">
+          <Breadcrumb page="Our cakes" go={() => go('home')} />
+          <p className="eyebrow">A SLICE OF HAPPINESS</p>
+          <h1>Our cakes & sweet treats</h1>
+          <p className="muted">
+            Discover a little something for every celebration. Preview products
+            and prices.
+          </p>
+          <div className="shop-toolbar">
+            <div className="tabs">
+              {['All', 'Cakes', 'Cupcakes', 'Desserts'].map((c) => (
+                <button
+                  className={category === c ? 'selected' : ''}
+                  onClick={() => setCategory(c)}
+                  key={c}
+                >
+                  {c === 'All' ? 'All treats' : c}
+                </button>
+              ))}
+            </div>
+            <div className="filter-controls">
+              <input
+                placeholder="Find your favourite"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                aria-label="Search products"
+              />
+              <select
+                value={sort}
+                onChange={(e) => setSort(e.target.value)}
+                aria-label="Sort products"
+              >
+                <option value="featured">Featured</option>
+                <option value="low">Price: low to high</option>
+                <option value="high">Price: high to low</option>
+              </select>
+            </div>
+          </div>
+          <div className="product-grid">{filtered.map(card)}</div>
+          {!filtered.length && (
+            <div className="empty-state">
+              <h2>No treats found</h2>
+              <p>Try another name or category.</p>
+              <button
+                className="button dark"
+                onClick={() => {
+                  setSearch('')
+                  setCategory('All')
+                }}
+              >
+                Clear filters
+              </button>
+            </div>
+          )}
+          <p className="collection-note">
+            ♡ All orders are collection only. Custom cakes are quoted
+            individually.
+          </p>
+        </main>
+      )}
+      {!['home', 'shop'].includes(page) && (
+        <main className="section page-section">
+          <Breadcrumb page={page} go={() => go('home')} />
+          {page === 'cart' && (
+            <Cart
+              cart={cart}
+              setCart={setCart}
+              store={store}
+              go={go}
+              user={user}
+              requireAccount={requireAccount}
+            />
+          )}
+          {page === 'account' && (
+            <Account
+              user={user}
+              setUser={setUser}
+              go={go}
+              pending={pending}
+              notify={setNotice}
+            />
+          )}
+          {['builder', 'checkout', 'tracking'].includes(page) && !user && (
+            <Empty
+              title="Your sweet space starts here"
+              text="Sign in to request a quote, place an order and keep track of your celebrations."
+              action={() => requireAccount(page)}
+              label="Sign in or create an account"
+            />
+          )}
+          {page === 'builder' && user && (
+            <>
+              <h1>Your cake. Your celebration.</h1>
+              <p className="muted">
+                Keep it simple. Share your idea and we’ll prepare a personal
+                quotation.
+              </p>
+              <Builder
+                store={store}
+                setStore={setStore}
+                user={user}
+                go={go}
+                notify={setNotice}
+              />
+            </>
+          )}
+          {page === 'checkout' && user && (
+            <>
+              <h1>A little closer to something sweet</h1>
+              <Checkout
+                cart={cart}
+                setCart={setCart}
+                store={store}
+                setStore={setStore}
+                user={user}
+                go={go}
+                notify={setNotice}
+              />
+            </>
+          )}
+          {page === 'tracking' && user && (
+            <Orders
+              store={store}
+              setStore={setStore}
+              user={user}
+              notify={setNotice}
+            />
+          )}
+          {page === 'gallery' && <Gallery />}
+          {page === 'about' && <About go={go} />}
+          {page === 'reviews' && (
+            <Reviews
+              store={store}
+              setStore={setStore}
+              user={user}
+              requireAccount={requireAccount}
+              notify={setNotice}
+            />
+          )}
+          {page === 'contact' && (
+            <Contact
+              store={store}
+              setStore={setStore}
+              user={user}
+              notify={setNotice}
+            />
+          )}
+          {![
+            'cart',
+            'account',
+            'builder',
+            'checkout',
+            'tracking',
+            'contact',
+            'gallery',
+            'about',
+            'reviews',
+          ].includes(page) && (
+            <Empty
+              title="This page isn’t here"
+              action={() => go('home')}
+              label="Back to home"
+            />
+          )}
+        </main>
+      )}
+      <footer>
+        <div className="footer-grid">
+          <div>
+            <Brand onClick={() => go('home')} />
+            <p>
+              Making life sweeter,
+              <br />
+              one celebration at a time.
+            </p>
+          </div>
+          <div>
+            <h3>Explore</h3>
+            {[
+              ['shop', 'Our cakes'],
+              ['builder', 'Custom cakes'],
+              ['about', 'About our bakery'],
+              ['gallery', 'Gallery'],
+              ['reviews', 'Customer feedback'],
+            ].map(([key, label]) => (
+              <button key={label} onClick={() => go(key)}>
+                {label}
+              </button>
+            ))}
+          </div>
+          <div>
+            <h3>A little help</h3>
+            <button onClick={() => go('tracking')}>My orders</button>
+            <button onClick={() => go('contact')}>Contact us</button>
+            <button onClick={() => go('account')}>My account</button>
+          </div>
+          <div>
+            <h3>Come collect a little joy</h3>
+            <p>Lenasia South, Migson Manor</p>
+            <p>
+              Mon–Fri · 09:00–17:00
+              <br />
+              Saturday · 09:00–15:00
+              <br />
+              Closed Sundays
+            </p>
+            <span className="footer-pill">Collection only</span>
+          </div>
+        </div>
+        <div className="footer-bottom">
+          <span>© {year} K Sweet Kreations Co</span>
+          <span>Made with love ♡</span>
+        </div>
+      </footer>
+      {selected && (
+        <Dialog
+          className="product-modal"
+          labelledBy="product-title"
+          onClose={() => setSelected(null)}
+        >
+          <img src={selected.image} alt={selected.name} />
+          <div>
+            <p className="eyebrow">{selected.category}</p>
+            <h2 id="product-title">{selected.name}</h2>
+            <p>{selected.description}</p>
+            <p>
+              {selected.size} · Approximately {selected.servings} servings
+            </p>
+            <strong className="large-price">{money(selected.price)}</strong>
+            <p className="muted">
+              Collection only. Discuss allergies with the bakery before
+              ordering.
+            </p>
+            <button
+              className="button dark"
+              onClick={() => {
+                add(selected)
+                setSelected(null)
+              }}
+            >
+              Add to cart
+            </button>
+          </div>
+        </Dialog>
+      )}
+    </>
+  )
 }
-export function Brand({onClick}){return <button className="brand" onClick={onClick}><span>K Sweet</span><small>KREATIONS CO</small></button>}
-export function Icon({name}){const paths={heart:'M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8Z',bag:'M5 7h14l1 14H4L5 7Zm3 0V5a4 4 0 0 1 8 0v2',user:'M20 21a8 8 0 0 0-16 0M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0Z',search:'m21 21-5-5M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Z',cake:'M3 12h18v9H3v-9Zm0 4c3 4 3-4 6 0s3-4 6 0 3-4 6 0M6 12V8h12v4M9 8V5m6 3V5',sparkle:'m12 2 3 7 7 3-7 3-3 7-3-7-7-3 7-3 3-7Z',check:'m5 12 4 4L19 6',clock:'M12 7v5l3 2M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0Z'};return <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={paths[name]||paths.cake}/></svg>}
-function SectionTitle({title,eyebrow,go}){return <div className="section-title"><div><p className="eyebrow">{eyebrow}</p><h2>{title}</h2><p className="muted">Find a favourite for your next celebration.</p></div><button className="text-button" onClick={go}>View all treats ↗</button></div>}
-export function Breadcrumb({page,go}){return <div className="breadcrumb"><button onClick={go}>Home</button><span>›</span><span>{page}</span></div>}
-function Faq(){return <div className="faq-grid">{[['Do you deliver?','We offer collection only from our bakery in Lenasia South. Your collection time is agreed with our team.'],['How do custom cakes work?','Share your size, flavour, filling and inspiration. We review your request and send a personal quote, valid for three days.'],['When should I order?','Request custom cakes at least seven days ahead. A verified 50% deposit secures your approved booking; the balance is due one day before collection.']].map(([q,a])=><details key={q}><summary>{q}</summary><p>{a}</p></details>)}</div>}
-
-
-
-
-
-
-
+export function Brand({ onClick }) {
+  return (
+    <button className="brand" onClick={onClick}>
+      <span>K Sweet</span>
+      <small>KREATIONS CO</small>
+    </button>
+  )
+}
+export function Icon({ name }) {
+  const paths = {
+    heart:
+      'M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8Z',
+    bag: 'M5 7h14l1 14H4L5 7Zm3 0V5a4 4 0 0 1 8 0v2',
+    user: 'M20 21a8 8 0 0 0-16 0M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0Z',
+    search: 'm21 21-5-5M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Z',
+    cake: 'M3 12h18v9H3v-9Zm0 4c3 4 3-4 6 0s3-4 6 0 3-4 6 0M6 12V8h12v4M9 8V5m6 3V5',
+    sparkle: 'm12 2 3 7 7 3-7 3-3 7-3-7-7-3 7-3 3-7Z',
+    check: 'm5 12 4 4L19 6',
+    clock: 'M12 7v5l3 2M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0Z',
+  }
+  return (
+    <svg
+      width="22"
+      height="22"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d={paths[name] || paths.cake} />
+    </svg>
+  )
+}
+function SectionTitle({ title, eyebrow, go }) {
+  return (
+    <div className="section-title">
+      <div>
+        <p className="eyebrow">{eyebrow}</p>
+        <h2>{title}</h2>
+        <p className="muted">Find a favourite for your next celebration.</p>
+      </div>
+      <button className="text-button" onClick={go}>
+        View all treats ↗
+      </button>
+    </div>
+  )
+}
+export function Breadcrumb({ page, go }) {
+  return (
+    <div className="breadcrumb">
+      <button onClick={go}>Home</button>
+      <span>›</span>
+      <span>{page}</span>
+    </div>
+  )
+}
+function Faq() {
+  return (
+    <div className="faq-grid">
+      {[
+        [
+          'Do you deliver?',
+          'We offer collection only from our bakery in Lenasia South. Your collection time is agreed with our team.',
+        ],
+        [
+          'How do custom cakes work?',
+          'Share your size, flavour, filling and inspiration. We review your request and send a personal quote, valid for three days.',
+        ],
+        [
+          'When should I order?',
+          'Request custom cakes at least seven days ahead. A verified 50% deposit secures your approved booking; the balance is due one day before collection.',
+        ],
+      ].map(([q, a]) => (
+        <details key={q}>
+          <summary>{q}</summary>
+          <p>{a}</p>
+        </details>
+      ))}
+    </div>
+  )
+}

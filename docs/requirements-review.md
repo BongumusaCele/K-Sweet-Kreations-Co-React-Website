@@ -12,34 +12,34 @@ Collection only: no delivery addresses, delivery fees or delivery management und
 
 ## Functional requirement register
 
-| ID | Requirement | Priority |
-| --- | --- | --- |
-| FR01 | Business and bakery service information | Must |
-| FR02 | Display cakes, cupcakes and desserts | Must |
-| FR03 | Product images, starting prices and relevant details | Must |
-| FR04 | Cake sizes and associated serving counts | Must |
-| FR05 | Select cake size | Must |
-| FR06 | Select flavour | Must |
-| FR07 | Select available filling | Must |
-| FR08 | Upload inspiration image | Must |
-| FR09 | Enter customisation comments, changes and special instructions | Must |
-| FR10 | Select preferred collection date | Must |
-| FR11 | Select preferred collection time within permitted hours | Must |
-| FR12 | Capture customer details, including name and contact number | Must |
-| FR13 | Submit completed custom cake selections as a quote request | Must |
-| FR14 | Bakery views and reviews submitted requests before final quotation | Must |
-| FR15 | Authorised bakery users view customer and order information | Must |
-| FR16 | Support 50% deposit and remaining balance payment process | Must |
-| FR17 | Authorised bakery users update order status | Should |
-| FR18 | Customers view their order progress/status | Should |
-| FR19 | Request, payment, collection-readiness and completion notifications | Should |
-| FR20 | Authorised users manage displayed products | Must |
-| FR21 | Submit general customer enquiries | Must |
-| FR22 | Gallery of previous bakery work | Should |
-| FR23 | Frequently asked questions | Should |
-| FR24 | Customer reviews or feedback area | Should |
-| FR25 | Convenient WhatsApp contact for enquiries/quotations | Should |
-| FR26 | Clearly reflect collection-only fulfilment | Must |
+| ID   | Requirement                                                         | Priority |
+| ---- | ------------------------------------------------------------------- | -------- |
+| FR01 | Business and bakery service information                             | Must     |
+| FR02 | Display cakes, cupcakes and desserts                                | Must     |
+| FR03 | Product images, starting prices and relevant details                | Must     |
+| FR04 | Cake sizes and associated serving counts                            | Must     |
+| FR05 | Select cake size                                                    | Must     |
+| FR06 | Select flavour                                                      | Must     |
+| FR07 | Select available filling                                            | Must     |
+| FR08 | Upload inspiration image                                            | Must     |
+| FR09 | Enter customisation comments, changes and special instructions      | Must     |
+| FR10 | Select preferred collection date                                    | Must     |
+| FR11 | Select preferred collection time within permitted hours             | Must     |
+| FR12 | Capture customer details, including name and contact number         | Must     |
+| FR13 | Submit completed custom cake selections as a quote request          | Must     |
+| FR14 | Bakery views and reviews submitted requests before final quotation  | Must     |
+| FR15 | Authorised bakery users view customer and order information         | Must     |
+| FR16 | Support 50% deposit and remaining balance payment process           | Must     |
+| FR17 | Authorised bakery users update order status                         | Should   |
+| FR18 | Customers view their order progress/status                          | Should   |
+| FR19 | Request, payment, collection-readiness and completion notifications | Should   |
+| FR20 | Authorised users manage displayed products                          | Must     |
+| FR21 | Submit general customer enquiries                                   | Must     |
+| FR22 | Gallery of previous bakery work                                     | Should   |
+| FR23 | Frequently asked questions                                          | Should   |
+| FR24 | Customer reviews or feedback area                                   | Should   |
+| FR25 | Convenient WhatsApp contact for enquiries/quotations                | Should   |
+| FR26 | Clearly reflect collection-only fulfilment                          | Must     |
 
 ## Additional features described outside the FR table
 
@@ -55,20 +55,20 @@ The five core documented statuses are Order Received, Payment Confirmed, Order I
 
 ## Non-functional requirement register
 
-| ID | Requirement | Priority |
-| --- | --- | --- |
-| NFR01 | Easy navigation and understandable custom cake builder | Must |
-| NFR02 | Clear, readable sizes, servings, prices and ordering instructions | Must |
-| NFR03 | Responsive desktop, tablet and mobile experience | Must |
-| NFR04 | Reasonable page loads and action response times | Should |
-| NFR05 | Protect customer details, uploads and orders from unauthorised access | Must |
-| NFR06 | Restricted access and legitimate use of customer information | Must |
-| NFR07 | Reliable operation and protection against lost requests/orders | Must |
-| NFR08 | Availability for browsing, enquiries and requests | Should |
-| NFR09 | Maintainable code and authorised content updates | Should |
-| NFR10 | Support growth in products, customers and orders | Should |
-| NFR11 | Compatibility with modern browsers | Should |
-| NFR12 | Consistent modern, elegant visual design | Should |
+| ID    | Requirement                                                           | Priority |
+| ----- | --------------------------------------------------------------------- | -------- |
+| NFR01 | Easy navigation and understandable custom cake builder                | Must     |
+| NFR02 | Clear, readable sizes, servings, prices and ordering instructions     | Must     |
+| NFR03 | Responsive desktop, tablet and mobile experience                      | Must     |
+| NFR04 | Reasonable page loads and action response times                       | Should   |
+| NFR05 | Protect customer details, uploads and orders from unauthorised access | Must     |
+| NFR06 | Restricted access and legitimate use of customer information          | Must     |
+| NFR07 | Reliable operation and protection against lost requests/orders        | Must     |
+| NFR08 | Availability for browsing, enquiries and requests                     | Should   |
+| NFR09 | Maintainable code and authorised content updates                      | Should   |
+| NFR10 | Support growth in products, customers and orders                      | Should   |
+| NFR11 | Compatibility with modern browsers                                    | Should   |
+| NFR12 | Consistent modern, elegant visual design                              | Should   |
 
 Security design additionally calls for HTTPS, server-enforced role and ownership checks, password hashing, staff MFA, input/file type and size validation, rate limits, parameterised queries, session expiry/revocation, hashed refresh tokens, secure secrets, protected media, sensitive-data protection and tamper-resistant audits. Card details are handled by the provider and are not stored by the application. Trusted payment outcomes or authorised EFT verification determine payment state.
 

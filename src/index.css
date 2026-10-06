@@ -1,3 +1,79 @@
 ﻿@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500;1,600&family=DM+Sans:wght@400;500;600;700&display=swap');
-:root{font-family:'DM Sans',sans-serif;color:#392345;background:#fcfafc;font-synthesis:none;text-rendering:optimizeLegibility;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}*{box-sizing:border-box}body{margin:0;min-width:320px}button,input,select,textarea{font:inherit}button{cursor:pointer;color:inherit}button:disabled{cursor:not-allowed;opacity:.55}button:focus-visible,summary:focus-visible{outline:3px solid #b34ab5;outline-offset:4px}input:focus,select:focus,textarea:focus{outline:2px solid #ac4dae;outline-offset:2px}h1,h2,h3,p{margin-top:0}h1,h2{font-family:'Cormorant Garamond',Georgia,serif;font-weight:600;line-height:1.1}h1{font-size:clamp(2.5rem,5vw,4rem)}h2{font-size:clamp(2rem,3.6vw,3rem)}h3{font-size:1rem}p{line-height:1.7}img{max-width:100%;object-fit:cover}button svg{vertical-align:middle}small{line-height:1.6}::selection{background:#edcbed}
-
+:root {
+  font-family: 'DM Sans', sans-serif;
+  color: #392345;
+  background: #fcfafc;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  min-width: 320px;
+}
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+button {
+  cursor: pointer;
+  color: inherit;
+}
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+button:focus-visible,
+summary:focus-visible {
+  outline: 3px solid #b34ab5;
+  outline-offset: 4px;
+}
+input:focus,
+select:focus,
+textarea:focus {
+  outline: 2px solid #ac4dae;
+  outline-offset: 2px;
+}
+h1,
+h2,
+h3,
+p {
+  margin-top: 0;
+}
+h1,
+h2 {
+  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-weight: 600;
+  line-height: 1.1;
+}
+h1 {
+  font-size: clamp(2.5rem, 5vw, 4rem);
+}
+h2 {
+  font-size: clamp(2rem, 3.6vw, 3rem);
+}
+h3 {
+  font-size: 1rem;
+}
+p {
+  line-height: 1.7;
+}
+img {
+  max-width: 100%;
+  object-fit: cover;
+}
+button svg {
+  vertical-align: middle;
+}
+small {
+  line-height: 1.6;
+}
+::selection {
+  background: #edcbed;
+}

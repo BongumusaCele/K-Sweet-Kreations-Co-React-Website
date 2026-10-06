@@ -1,27 +1,1090 @@
-﻿import {useState} from 'react'
-import {money} from './data'
-import {addDays,today,slots,collectionError,cartTotal,paymentState,quoteExpired,validateImage} from './rules'
-import {createId} from './store'
+﻿import { useState } from 'react'
+import { money } from './data'
+import {
+  addDays,
+  today,
+  slots,
+  collectionError,
+  cartTotal,
+  depositAmount,
+  outstandingAmount,
+  paymentState,
+  quoteExpired,
+  validateImage,
+} from './rules'
+import { createId } from './store'
 const nowIso = () => new Date().toISOString()
-const formatTime = value => new Date(value).toLocaleString('en-ZA',{timeZone:'Africa/Johannesburg'})
-const formatDate = value => new Date(value).toLocaleDateString('en-ZA',{timeZone:'Africa/Johannesburg'})
+const formatTime = (value) =>
+  new Date(value).toLocaleString('en-ZA', { timeZone: 'Africa/Johannesburg' })
+const formatDate = (value) =>
+  new Date(value).toLocaleDateString('en-ZA', {
+    timeZone: 'Africa/Johannesburg',
+  })
 
-export function Account({user,setUser,go,pending,notify}){
- const [mode,setMode]=useState('login'),[error,setError]=useState('')
- if(user)return <div className="account-layout"><aside className="panel"><div className="avatar">{user.name.slice(0,1)}</div><h2>{user.name}</h2><p className="muted">Customer account preview</p><button className="button dark" onClick={()=>go('tracking')}>My orders & quotes</button><button className="text-button" onClick={()=>{setUser(null);notify('Signed out of the preview.')}}>Sign out</button></aside><form className="panel form" onSubmit={e=>{e.preventDefault();const f=new FormData(e.currentTarget);setUser({...user,name:f.get('name'),phone:f.get('phone')});notify('Preview profile updated.')}}><p className="eyebrow">YOUR DETAILS</p><h2>A little about you</h2><Field label="Full name" name="name" defaultValue={user.name} required/><Field label="Email" name="email" type="email" value={user.email} readOnly/><Field label="Phone number" name="phone" type="tel" defaultValue={user.phone}/><button className="button dark">Save profile</button></form></div>
- return <div className="auth-wrap"><div className="auth-intro"><p className="eyebrow">WELCOME TO YOUR SWEET SPACE</p><h2>Your celebrations,<br/>all in one place.</h2><p>Keep your quotes, orders and collection details together.</p><img src="/images/cupcakes.jpg" alt="Cupcakes with piped frosting"/></div><form className="auth-card form" onSubmit={e=>{e.preventDefault();const f=new FormData(e.currentTarget);if(mode==='reset'){setError('Password recovery will be available when the account service is connected.');return}setUser({name:f.get('name')||'Alex',email:f.get('email').toLowerCase().trim(),phone:f.get('phone')||'',role:'Customer'});notify('Customer preview opened. No real account was created.');go(pending||'tracking')}}><p className="eyebrow">K SWEET KREATIONS CO</p><h2>{mode==='register'?'Create your account':mode==='reset'?'Forgot password?':'Welcome back'}</h2><p className="auth-hint">Preview only. Use sample details; passwords are neither stored nor verified.</p>{mode==='register'&&<><Field label="Full name" name="name" autoComplete="name" required/><Field label="Phone number" name="phone" type="tel" autoComplete="tel" required/></>}<Field label="Email address" name="email" type="email" autoComplete="email" defaultValue="customer@example.com" required/>{mode!=='reset'&&<Field label="Password" name="password" type="password" autoComplete={mode==='register'?'new-password':'current-password'} minLength={8} required/>}<Error text={error}/><button className="button dark">{mode==='register'?'Register — preview':mode==='reset'?'Request reset':'Sign in — preview'}</button><button type="button" className="text-button" onClick={()=>{setMode(mode==='register'?'login':'register');setError('')}}>{mode==='register'?'Already have an account? Sign in':'New here? Create an account'}</button>{mode==='login'&&<button type="button" className="text-button" onClick={()=>setMode('reset')}>Forgot password?</button>}</form></div>
+export function Account({ user, setUser, go, pending, notify }) {
+  const [mode, setMode] = useState('login'),
+    [error, setError] = useState('')
+  if (user)
+    return (
+      <div className="account-layout">
+        <aside className="panel">
+          <div className="avatar">{user.name.slice(0, 1)}</div>
+          <h2>{user.name}</h2>
+          <p className="muted">Customer account preview</p>
+          <button className="button dark" onClick={() => go('tracking')}>
+            My orders & quotes
+          </button>
+          <button
+            className="text-button"
+            onClick={() => {
+              setUser(null)
+              notify('Signed out of the preview.')
+            }}
+          >
+            Sign out
+          </button>
+        </aside>
+        <form
+          className="panel form"
+          onSubmit={(e) => {
+            e.preventDefault()
+            const f = new FormData(e.currentTarget)
+            setUser({ ...user, name: f.get('name'), phone: f.get('phone') })
+            notify('Preview profile updated.')
+          }}
+        >
+          <p className="eyebrow">YOUR DETAILS</p>
+          <h2>A little about you</h2>
+          <Field
+            label="Full name"
+            name="name"
+            defaultValue={user.name}
+            required
+          />
+          <Field
+            label="Email"
+            name="email"
+            type="email"
+            value={user.email}
+            readOnly
+          />
+          <Field
+            label="Phone number"
+            name="phone"
+            type="tel"
+            defaultValue={user.phone}
+          />
+          <button className="button dark">Save profile</button>
+        </form>
+      </div>
+    )
+  return (
+    <div className="auth-wrap">
+      <div className="auth-intro">
+        <p className="eyebrow">WELCOME TO YOUR SWEET SPACE</p>
+        <h2>
+          Your celebrations,
+          <br />
+          all in one place.
+        </h2>
+        <p>Keep your quotes, orders and collection details together.</p>
+        <img src="/images/cupcakes.jpg" alt="Cupcakes with piped frosting" />
+      </div>
+      <form
+        className="auth-card form"
+        onSubmit={(e) => {
+          e.preventDefault()
+          const f = new FormData(e.currentTarget)
+          if (mode === 'reset') {
+            setError(
+              'Password recovery will be available when the account service is connected.',
+            )
+            return
+          }
+          setUser({
+            name: f.get('name') || 'Alex',
+            email: f.get('email').toLowerCase().trim(),
+            phone: f.get('phone') || '',
+            role: 'Customer',
+          })
+          notify('Customer preview opened. No real account was created.')
+          go(pending || 'tracking')
+        }}
+      >
+        <p className="eyebrow">K SWEET KREATIONS CO</p>
+        <h2>
+          {mode === 'register'
+            ? 'Create your account'
+            : mode === 'reset'
+              ? 'Forgot password?'
+              : 'Welcome back'}
+        </h2>
+        <p className="auth-hint">
+          Preview only. Use sample details; passwords are neither stored nor
+          verified.
+        </p>
+        {mode === 'register' && (
+          <>
+            <Field label="Full name" name="name" autoComplete="name" required />
+            <Field
+              label="Phone number"
+              name="phone"
+              type="tel"
+              autoComplete="tel"
+              required
+            />
+          </>
+        )}
+        <Field
+          label="Email address"
+          name="email"
+          type="email"
+          autoComplete="email"
+          defaultValue="customer@example.com"
+          required
+        />
+        {mode !== 'reset' && (
+          <Field
+            label="Password"
+            name="password"
+            type="password"
+            autoComplete={
+              mode === 'register' ? 'new-password' : 'current-password'
+            }
+            minLength={8}
+            required
+          />
+        )}
+        <Error text={error} />
+        <button className="button dark">
+          {mode === 'register'
+            ? 'Register — preview'
+            : mode === 'reset'
+              ? 'Request reset'
+              : 'Sign in — preview'}
+        </button>
+        <button
+          type="button"
+          className="text-button"
+          onClick={() => {
+            setMode(mode === 'register' ? 'login' : 'register')
+            setError('')
+          }}
+        >
+          {mode === 'register'
+            ? 'Already have an account? Sign in'
+            : 'New here? Create an account'}
+        </button>
+        {mode === 'login' && (
+          <button
+            type="button"
+            className="text-button"
+            onClick={() => setMode('reset')}
+          >
+            Forgot password?
+          </button>
+        )}
+      </form>
+    </div>
+  )
 }
-export function Field({label,...props}){return <label className="field"><span>{label}</span><input {...props}/></label>}
-export function Error({text}){return text?<p className="error" role="alert">{text}</p>:null}
-export function CollectionFields({custom,blocked,date,setDate,time,setTime}){return <div className="form-row"><label className="field"><span>Preferred collection date</span><input aria-label="Preferred collection date" type="date" min={addDays(today(),custom?7:1)} value={date} onChange={e=>{setDate(e.target.value);setTime('')}} required/><small>{custom?'At least seven days ahead.':'From tomorrow; subject to bakery approval.'} No Sundays.{blocked.includes(date)&&' This date is blocked.'}</small></label><label className="field"><span>Collection time</span><select aria-label="Collection time" value={time} onChange={e=>setTime(e.target.value)} required><option value="">Choose a 30-minute slot</option>{slots(date).map(t=><option key={t} value={t}>{t}</option>)}</select><small>Your time is provisional until approved.</small></label></div>}
-export function Cart({cart,setCart,store,go,user,requireAccount}){const total=cartTotal(cart,store.products);return <><div className="page-heading"><div><h1>Your cart ({cart.reduce((n,i)=>n+i.quantity,0)})</h1><p className="muted">A little happiness, ready for your next celebration.</p></div><button className="button outline" onClick={()=>go('shop')}>← Continue shopping</button></div>{!cart.length?<Empty title="Your cart is waiting for something sweet" text="Browse our cakes and find your favourite." action={()=>go('shop')} label="Explore our cakes"/>:<div className="checkout-layout"><div className="panel cart-items">{cart.map(item=>{const p=store.products.find(p=>p.id===item.id);return <article className="cart-item" key={item.id}><img src={p?.image||item.image} alt={p?.name||item.name}/><div><h3>{p?.name||item.name}</h3><p>{p?.description}</p><small>Size: {p?.size}</small>{!p?.active&&<p className="error">Unavailable. Remove before checkout.</p>}</div><strong>{money(p?.price||0)}</strong><div className="quantity"><button aria-label={`Decrease ${item.name}`} onClick={()=>setCart(items=>items.map(i=>i.id===item.id?{...i,quantity:Math.max(1,i.quantity-1)}:i))}>−</button><span>{item.quantity}</span><button disabled={item.quantity>=20} aria-label={`Increase ${item.name}`} onClick={()=>setCart(items=>items.map(i=>i.id===item.id?{...i,quantity:i.quantity+1}:i))}>+</button></div><button className="remove" aria-label={`Remove ${item.name}`} onClick={()=>setCart(items=>items.filter(i=>i.id!==item.id))}>×</button></article>})}<div className="soft-note">♡ Add a cake message or special instructions at checkout.</div></div><aside className="panel summary"><h2>Order summary</h2><div><span>Subtotal</span><strong>{money(total)}</strong></div><div><span>Collection</span><strong>Free</strong></div><div className="summary-total"><span>Total</span><strong>{money(total)}</strong></div><button className="button dark" disabled={cart.some(i=>!store.products.find(p=>p.id===i.id)?.active)} onClick={()=>user?go('checkout'):requireAccount('checkout')}>Proceed to checkout</button><div className="soft-note"><h3>Collection only</h3><p>Collect from the bakery at your approved time. Standard orders are paid in full.</p></div></aside></div>}</>}
-export function Checkout({cart,setCart,store,setStore,user,go,notify}){const [date,setDate]=useState(''),[time,setTime]=useState(''),[error,setError]=useState('');const total=cartTotal(cart,store.products);if(!cart.length)return <Empty title="Your cart is empty" action={()=>go('shop')} label="Find a treat"/>;return <div className="checkout-layout"><form className="panel form" onSubmit={e=>{e.preventDefault();const problem=collectionError(date,time,false,store.blocked);if(problem){setError(problem);return}if(cart.some(i=>!store.products.find(p=>p.id===i.id)?.active)){setError('An item is no longer available. Please update your cart.');return}const f=new FormData(e.currentTarget);const order={id:createId('KSK'),owner:user.email,name:f.get('name'),phone:f.get('phone'),type:'Standard',items:cart.map(i=>({...store.products.find(p=>p.id===i.id),quantity:i.quantity})),total,paid:0,status:'Awaiting confirmation',slotApproved:false,date,time,instructions:f.get('instructions'),method:f.get('method'),history:[{status:'Awaiting confirmation',at:nowIso()}],payments:[]};setStore(s=>({...s,orders:[order,...s.orders]}));setCart([]);notify(`Preview order ${order.id} saved. No payment was taken.`);go('tracking')}}><p className="eyebrow">THE FINAL DETAILS</p><h2>Collection checkout</h2><div className="form-row"><Field label="Full name" name="name" defaultValue={user.name} required/><Field label="Phone number" name="phone" type="tel" defaultValue={user.phone} required/></div><CollectionFields date={date} setDate={setDate} time={time} setTime={setTime} blocked={store.blocked}/><label className="field"><span>Special instructions or cake message</span><textarea name="instructions" rows="3" maxLength={1000}/></label><label className="field"><span>Payment method</span><select name="method"><option>EFT</option><option disabled>Card — provider not connected</option></select></label><div className="soft-note">This preview records an unpaid order only. Real checkout and payment processing need the backend and payment provider.</div><Error text={error}/><button className="button dark">Save preview order · {money(total)}</button></form><aside className="panel summary"><h2>Your sweet selection</h2>{cart.map(i=><div key={i.id}><span>{i.name} × {i.quantity}</span><strong>{money(store.products.find(p=>p.id===i.id).price*i.quantity)}</strong></div>)}<div className="summary-total"><span>Total</span><strong>{money(total)}</strong></div><p className="muted">Standard purchases: full payment upfront. Your collection slot still needs bakery approval.</p></aside></div>}
-export function Builder({store,setStore,user,go,notify}){const [date,setDate]=useState(''),[time,setTime]=useState(''),[image,setImage]=useState(null),[error,setError]=useState(''),[busy,setBusy]=useState(false);return <div className="checkout-layout"><form className="panel form" onSubmit={e=>{e.preventDefault();if(busy)return;const problem=collectionError(date,time,true,store.blocked);if(problem){setError(problem);return}const f=new FormData(e.currentTarget);const request={id:createId('QUOTE'),owner:user.email,name:f.get('name'),phone:f.get('phone'),size:f.get('size'),flavour:f.get('flavour'),filling:f.get('filling'),comments:f.get('comments'),date,time,image,status:'Submitted',createdAt:nowIso()};setStore(s=>({...s,requests:[request,...s.requests]}));notify('Your preview cake request is ready for bakery review.');go('tracking')}}><p className="eyebrow">LET’S MAKE IT YOURS</p><h2>Tell us about your cake</h2><p className="muted">A few simple details. A personally prepared quotation.</p><div className="form-row"><Field label="Your name" name="name" defaultValue={user.name} required/><Field label="Phone number" name="phone" type="tel" defaultValue={user.phone} required/></div><div className="form-row"><label className="field"><span>Cake size & servings</span><select name="size" required><option value="">Choose a size</option><option>15 cm · 6–8 servings</option><option>20 cm · 10–12 servings</option><option>25 cm · 16–20 servings</option><option>Not sure — please advise</option></select></label><label className="field"><span>Flavour</span><select aria-label="Flavour" name="flavour" required><option value="">Choose a flavour</option><option>Vanilla</option><option>Chocolate</option><option>Red velvet</option><option>Please advise</option></select></label></div><label className="field"><span>Filling</span><select aria-label="Filling" name="filling" required><option value="">Choose a filling</option><option>Vanilla buttercream</option><option>Chocolate buttercream</option><option>Berry</option><option>Please advise</option></select></label><label className="field upload"><span>Design inspiration (optional)</span><input type="file" accept="image/jpeg,image/png,image/webp" onChange={e=>{const file=e.target.files[0];setImage(null);if(!file)return;const problem=validateImage(file);if(problem){setError(problem);e.target.value='';return}setBusy(true);setError('');const reader=new FileReader();reader.onload=()=>{setImage({name:file.name,url:reader.result});setBusy(false)};reader.onerror=()=>{setError('The image could not be read. Try another file.');setBusy(false)};reader.readAsDataURL(file)}}/><small>JPG, PNG or WebP · up to 2 MB. Use sample images in this preview.</small>{image&&<img src={image.url} alt="Your cake inspiration"/>}</label><label className="field"><span>Theme, cake message or special instructions</span><textarea name="comments" rows="4" maxLength={2000} placeholder="Tell us what will make your celebration special…" required/></label><CollectionFields custom blocked={store.blocked} date={date} setDate={setDate} time={time} setTime={setTime}/><Error text={error}/><button className="button dark" disabled={busy}>{busy?'Preparing image…':'Submit preview quote request ↗'}</button></form><aside className="builder-aside"><img src="/images/celebration.jpg" alt="A custom celebration cake"/><div className="panel"><h2>Your idea, beautifully baked.</h2><ol><li>Share your preferences and inspiration.</li><li>Our team reviews and quotes personally.</li><li>Accept within three days and pay 50%.</li><li>Pay the balance one day before collection.</li></ol><p className="muted">No automatic price. Collection only, with at least seven days’ notice. Sizes and options shown are sample catalogue content.</p></div></aside></div>}
-export function Orders({store,setStore,user,notify}){const [query,setQuery]=useState('');const orders=store.orders.filter(o=>o.owner===user.email&&o.id.toLowerCase().includes(query.toLowerCase()));const requests=store.requests.filter(q=>q.owner===user.email);function accept(q){const problem=collectionError(q.date,q.time,true,store.blocked);if(problem){notify(problem);return}if(quoteExpired(q)){notify('This quote has expired. Contact the bakery for a new quote.');return}if(store.orders.some(o=>o.quoteId===q.id))return;const order={id:createId('KSK'),quoteId:q.id,owner:q.owner,name:q.name,phone:q.phone,type:'Custom',items:[{name:`Custom ${q.flavour} cake`,image:q.image?.url||'/images/celebration.jpg',quantity:1,size:q.size}],total:q.amount,paid:0,status:'Awaiting confirmation',date:q.date,time:q.time,slotApproved:true,history:[{status:'Awaiting confirmation',at:nowIso()}],payments:[]};setStore(s=>({...s,requests:s.requests.map(r=>r.id===q.id?{...r,status:'Accepted'}:r),orders:[order,...s.orders]}));notify('Quote accepted in preview. Your deposit is awaiting payment.')}return <><div className="page-heading"><div><h1>Your sweet journey</h1><p className="muted">Quotes, current orders and past celebrations — all together.</p></div><label className="search-box"><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Find an order reference" aria-label="Find an order reference"/></label></div>{requests.length>0&&<section className="panel quotes-list"><h2>Your custom quotes</h2>{requests.map(q=><article className="quote-row" key={q.id}><div><strong>{q.id}</strong><p>{q.size} · {q.flavour} · {q.filling}</p><small>{q.date} at {q.time}</small></div><Badge text={q.status==='Quoted'&&quoteExpired(q)?'Expired':q.status}/>{q.amount&&<strong>{money(q.amount)}</strong>}{q.status==='Quoted'&&!quoteExpired(q)&&<div><p className="muted">Valid until {formatTime(q.expiresAt)}</p><p>{q.notes}</p><button className="button dark" onClick={()=>accept(q)}>Accept quote</button><button className="text-button" onClick={()=>setStore(s=>({...s,requests:s.requests.map(r=>r.id===q.id?{...r,status:'Declined'}:r)}))}>Decline</button></div>}</article>)}</section>}{!orders.length&&<Empty title="No matching orders yet" text="Your orders will appear here once you place one."/>}{orders.map(o=><OrderCard key={o.id} order={o} setStore={setStore} notify={notify}/>)}<p className="muted">Only records belonging to your selected preview customer are shown. Real access control must be enforced by the backend.</p></>}
-function OrderCard({order:o,setStore,notify}){const [proof,setProof]=useState(null),[error,setError]=useState('');const state=paymentState(o),stages=['Confirmed','In progress','Ready for collection','Collected'];return <article className="panel order-card"><div className="page-heading"><div><p className="eyebrow">{o.type.toUpperCase()} ORDER</p><h2>Order {o.id}</h2></div><Badge text={o.status}/></div><div className="timeline">{stages.map((s,i)=><div className={stages.indexOf(o.status)>=i?'done':''} key={s}><span>{i+1}</span><strong>{s}</strong></div>)}</div><div className="order-details"><div><h3>Your selection</h3>{o.items.map((item,i)=><div className="order-product" key={i}><img src={item.image} alt={item.name}/><div><strong>{item.name}</strong><p>{item.size} · Qty {item.quantity}</p></div></div>)}</div><div><h3>Collection information</h3><p>Lenasia South, Migson Manor<br/>{o.date} · {o.time}<br/><small>{o.slotApproved?'Collection time approved':'Collection time awaiting bakery approval'}</small></p></div><div><h3>Payment</h3><Badge text={state}/><p>Total: {money(o.total)}<br/>Paid: {money(o.paid)}<br/><strong>Outstanding: {money(Math.max(0,o.total-o.paid))}</strong></p>{o.type==='Custom'&&o.paid<o.total&&<small>Balance due {addDays(o.date,-1)}. Initial deposit: {money(o.total/2)}.</small>}</div></div>{o.paid<o.total&&!['Cancelled','Collected'].includes(o.status)&&<details className="payment-details"><summary>Submit preview EFT proof</summary><p className="muted">No real bank/payment connection. Proof remains unverified until reviewed by authorised staff.</p><input type="file" aria-label="EFT proof" accept="image/jpeg,image/png,image/webp" onChange={e=>{const f=e.target.files[0];setProof(null);if(!f)return;const problem=validateImage(f);setError(problem);if(!problem){const reader=new FileReader();reader.onload=()=>setProof({name:f.name,url:reader.result});reader.readAsDataURL(f)}}}/><button className="button outline" disabled={!proof||o.payments.some(p=>p.status==='Awaiting verification')} onClick={()=>{const p={id:createId('PAY'),method:'EFT',amount:o.type==='Custom'&&o.paid===0?o.total/2:o.total-o.paid,status:'Awaiting verification',proof};setStore(s=>({...s,orders:s.orders.map(r=>r.id===o.id?{...r,payments:[...r.payments,p]}:r)}));setProof(null);notify('Preview proof submitted. Payment is awaiting verification.')}}>Submit proof</button><Error text={error}/>{o.payments.some(p=>p.status==='Awaiting verification')&&<p className="muted">Payment awaiting verification.</p>}</details>}{!['Collected','Cancelled'].includes(o.status)&&<button className="text-button" disabled={o.cancelRequested} onClick={()=>{setStore(s=>({...s,orders:s.orders.map(r=>r.id===o.id?{...r,cancelRequested:true}:r)}));notify('Cancellation requested. Admin will review it.')}}>{o.cancelRequested?'Cancellation requested':'Request cancellation'}</button>}<details className="history"><summary>Order history</summary>{o.history.map((h,i)=><p key={i}>{h.status} · {formatDate(h.at)}</p>)}</details></article>}
-export function Badge({text}){return <span className={`badge ${['Collected','Fully paid','Accepted','Verified'].includes(text)?'success':''}`}>{text}</span>}
-export function Empty({title,text,action,label}){return <div className="empty-state"><h2>{title}</h2>{text&&<p className="muted">{text}</p>}{action&&<button className="button dark" onClick={action}>{label}</button>}</div>}
-export function Contact({store,setStore,user,notify}){const [sent,setSent]=useState(false);return <><h1>Let’s talk something sweet</h1><p className="muted">A question, an idea or a celebration to plan? We’re here to help.</p><div className="checkout-layout"><form className="panel form" onSubmit={e=>{e.preventDefault();const f=new FormData(e.currentTarget);setStore({...store,enquiries:[{id:createId('ENQ'),name:f.get('name'),email:f.get('email'),subject:f.get('subject'),message:f.get('message'),status:'New'},...store.enquiries]});setSent(true);notify('Preview enquiry saved locally. It has not been sent to the bakery.')}}>{sent?<Empty title="Your preview enquiry is saved" text="The team can review it in the portal preview."/>:<><h2>Send an enquiry</h2><Field label="Your name" name="name" defaultValue={user?.name} required/><Field label="Email address" name="email" type="email" defaultValue={user?.email} required/><Field label="Subject" name="subject" required maxLength={150}/><label className="field"><span>Your message</span><textarea name="message" rows="5" required maxLength={2000}/></label><button className="button dark">Save preview enquiry</button></>}</form><aside className="panel"><p className="eyebrow">COME COLLECT A LITTLE JOY</p><h2>Find us in<br/>Lenasia South.</h2><p>Migson Manor, Lenasia South<br/>Collection only.</p><h3>Opening hours</h3><p>Monday–Friday · 09:00–17:00<br/>Saturday · 09:00–15:00<br/>Closed Sundays</p><p className="muted">The bakery’s exact collection address, phone number, email and WhatsApp link will be added once supplied.</p></aside></div></>}
-
-
-
+export function Field({ label, ...props }) {
+  return (
+    <label className="field">
+      <span>{label}</span>
+      <input {...props} />
+    </label>
+  )
+}
+export function Error({ text }) {
+  return text ? (
+    <p className="error" role="alert">
+      {text}
+    </p>
+  ) : null
+}
+export function CollectionFields({
+  custom,
+  blocked,
+  date,
+  setDate,
+  time,
+  setTime,
+}) {
+  return (
+    <div className="form-row">
+      <label className="field">
+        <span>Preferred collection date</span>
+        <input
+          aria-label="Preferred collection date"
+          type="date"
+          min={addDays(today(), custom ? 7 : 1)}
+          value={date}
+          onChange={(e) => {
+            setDate(e.target.value)
+            setTime('')
+          }}
+          required
+        />
+        <small>
+          {custom
+            ? 'At least seven days ahead.'
+            : 'From tomorrow; subject to bakery approval.'}{' '}
+          No Sundays.{blocked.includes(date) && ' This date is blocked.'}
+        </small>
+      </label>
+      <label className="field">
+        <span>Collection time</span>
+        <select
+          aria-label="Collection time"
+          value={time}
+          onChange={(e) => setTime(e.target.value)}
+          required
+        >
+          <option value="">Choose a 30-minute slot</option>
+          {slots(date).map((t) => (
+            <option key={t} value={t}>
+              {t}
+            </option>
+          ))}
+        </select>
+        <small>Your time is provisional until approved.</small>
+      </label>
+    </div>
+  )
+}
+export function Cart({ cart, setCart, store, go, user, requireAccount }) {
+  const total = cartTotal(cart, store.products)
+  return (
+    <>
+      <div className="page-heading">
+        <div>
+          <h1>Your cart ({cart.reduce((n, i) => n + i.quantity, 0)})</h1>
+          <p className="muted">
+            A little happiness, ready for your next celebration.
+          </p>
+        </div>
+        <button className="button outline" onClick={() => go('shop')}>
+          ← Continue shopping
+        </button>
+      </div>
+      {!cart.length ? (
+        <Empty
+          title="Your cart is waiting for something sweet"
+          text="Browse our cakes and find your favourite."
+          action={() => go('shop')}
+          label="Explore our cakes"
+        />
+      ) : (
+        <div className="checkout-layout">
+          <div className="panel cart-items">
+            {cart.map((item) => {
+              const p = store.products.find((p) => p.id === item.id)
+              return (
+                <article className="cart-item" key={item.id}>
+                  <img
+                    src={p?.image || item.image}
+                    alt={p?.name || item.name}
+                  />
+                  <div>
+                    <h3>{p?.name || item.name}</h3>
+                    <p>{p?.description}</p>
+                    <small>Size: {p?.size}</small>
+                    {!p?.active && (
+                      <p className="error">
+                        Unavailable. Remove before checkout.
+                      </p>
+                    )}
+                  </div>
+                  <strong>{money(p?.price || 0)}</strong>
+                  <div className="quantity">
+                    <button
+                      aria-label={`Decrease ${item.name}`}
+                      onClick={() =>
+                        setCart((items) =>
+                          items.map((i) =>
+                            i.id === item.id
+                              ? { ...i, quantity: Math.max(1, i.quantity - 1) }
+                              : i,
+                          ),
+                        )
+                      }
+                    >
+                      −
+                    </button>
+                    <span>{item.quantity}</span>
+                    <button
+                      disabled={item.quantity >= 20}
+                      aria-label={`Increase ${item.name}`}
+                      onClick={() =>
+                        setCart((items) =>
+                          items.map((i) =>
+                            i.id === item.id
+                              ? { ...i, quantity: i.quantity + 1 }
+                              : i,
+                          ),
+                        )
+                      }
+                    >
+                      +
+                    </button>
+                  </div>
+                  <button
+                    className="remove"
+                    aria-label={`Remove ${item.name}`}
+                    onClick={() =>
+                      setCart((items) => items.filter((i) => i.id !== item.id))
+                    }
+                  >
+                    ×
+                  </button>
+                </article>
+              )
+            })}
+            <div className="soft-note">
+              ♡ Add a cake message or special instructions at checkout.
+            </div>
+          </div>
+          <aside className="panel summary">
+            <h2>Order summary</h2>
+            <div>
+              <span>Subtotal</span>
+              <strong>{money(total)}</strong>
+            </div>
+            <div>
+              <span>Collection</span>
+              <strong>Free</strong>
+            </div>
+            <div className="summary-total">
+              <span>Total</span>
+              <strong>{money(total)}</strong>
+            </div>
+            <button
+              className="button dark"
+              disabled={cart.some(
+                (i) => !store.products.find((p) => p.id === i.id)?.active,
+              )}
+              onClick={() =>
+                user ? go('checkout') : requireAccount('checkout')
+              }
+            >
+              Proceed to checkout
+            </button>
+            <div className="soft-note">
+              <h3>Collection only</h3>
+              <p>
+                Collect from the bakery at your approved time. Standard orders
+                are paid in full.
+              </p>
+            </div>
+          </aside>
+        </div>
+      )}
+    </>
+  )
+}
+export function Checkout({ cart, setCart, store, setStore, user, go, notify }) {
+  const [date, setDate] = useState(''),
+    [time, setTime] = useState(''),
+    [error, setError] = useState('')
+  const total = cartTotal(cart, store.products)
+  if (!cart.length)
+    return (
+      <Empty
+        title="Your cart is empty"
+        action={() => go('shop')}
+        label="Find a treat"
+      />
+    )
+  return (
+    <div className="checkout-layout">
+      <form
+        className="panel form"
+        onSubmit={(e) => {
+          e.preventDefault()
+          const problem = collectionError(date, time, false, store.blocked)
+          if (problem) {
+            setError(problem)
+            return
+          }
+          if (
+            cart.some((i) => !store.products.find((p) => p.id === i.id)?.active)
+          ) {
+            setError('An item is no longer available. Please update your cart.')
+            return
+          }
+          const f = new FormData(e.currentTarget)
+          const order = {
+            id: createId('KSK'),
+            owner: user.email,
+            name: f.get('name'),
+            phone: f.get('phone'),
+            type: 'Standard',
+            items: cart.map((i) => ({
+              ...store.products.find((p) => p.id === i.id),
+              quantity: i.quantity,
+            })),
+            total,
+            paid: 0,
+            status: 'Awaiting confirmation',
+            slotApproved: false,
+            date,
+            time,
+            instructions: f.get('instructions'),
+            method: f.get('method'),
+            history: [{ status: 'Awaiting confirmation', at: nowIso() }],
+            payments: [],
+          }
+          setStore((s) => ({ ...s, orders: [order, ...s.orders] }))
+          setCart([])
+          notify(`Preview order ${order.id} saved. No payment was taken.`)
+          go('tracking')
+        }}
+      >
+        <p className="eyebrow">THE FINAL DETAILS</p>
+        <h2>Collection checkout</h2>
+        <div className="form-row">
+          <Field
+            label="Full name"
+            name="name"
+            defaultValue={user.name}
+            required
+          />
+          <Field
+            label="Phone number"
+            name="phone"
+            type="tel"
+            defaultValue={user.phone}
+            required
+          />
+        </div>
+        <CollectionFields
+          date={date}
+          setDate={setDate}
+          time={time}
+          setTime={setTime}
+          blocked={store.blocked}
+        />
+        <label className="field">
+          <span>Special instructions or cake message</span>
+          <textarea name="instructions" rows="3" maxLength={1000} />
+        </label>
+        <label className="field">
+          <span>Payment method</span>
+          <select name="method">
+            <option>EFT</option>
+            <option disabled>Card — provider not connected</option>
+          </select>
+        </label>
+        <div className="soft-note">
+          This preview records an unpaid order only. Real checkout and payment
+          processing need the backend and payment provider.
+        </div>
+        <Error text={error} />
+        <button className="button dark">
+          Save preview order · {money(total)}
+        </button>
+      </form>
+      <aside className="panel summary">
+        <h2>Your sweet selection</h2>
+        {cart.map((i) => (
+          <div key={i.id}>
+            <span>
+              {i.name} × {i.quantity}
+            </span>
+            <strong>
+              {money(
+                store.products.find((p) => p.id === i.id).price * i.quantity,
+              )}
+            </strong>
+          </div>
+        ))}
+        <div className="summary-total">
+          <span>Total</span>
+          <strong>{money(total)}</strong>
+        </div>
+        <p className="muted">
+          Standard purchases: full payment upfront. Your collection slot still
+          needs bakery approval.
+        </p>
+      </aside>
+    </div>
+  )
+}
+export function Builder({ store, setStore, user, go, notify }) {
+  const [date, setDate] = useState(''),
+    [time, setTime] = useState(''),
+    [image, setImage] = useState(null),
+    [error, setError] = useState(''),
+    [busy, setBusy] = useState(false)
+  return (
+    <div className="checkout-layout">
+      <form
+        className="panel form"
+        onSubmit={(e) => {
+          e.preventDefault()
+          if (busy) return
+          const problem = collectionError(date, time, true, store.blocked)
+          if (problem) {
+            setError(problem)
+            return
+          }
+          const f = new FormData(e.currentTarget)
+          const request = {
+            id: createId('QUOTE'),
+            owner: user.email,
+            name: f.get('name'),
+            phone: f.get('phone'),
+            size: f.get('size'),
+            flavour: f.get('flavour'),
+            filling: f.get('filling'),
+            comments: f.get('comments'),
+            date,
+            time,
+            image,
+            status: 'Submitted',
+            createdAt: nowIso(),
+          }
+          setStore((s) => ({ ...s, requests: [request, ...s.requests] }))
+          notify('Your preview cake request is ready for bakery review.')
+          go('tracking')
+        }}
+      >
+        <p className="eyebrow">LET’S MAKE IT YOURS</p>
+        <h2>Tell us about your cake</h2>
+        <p className="muted">
+          A few simple details. A personally prepared quotation.
+        </p>
+        <div className="form-row">
+          <Field
+            label="Your name"
+            name="name"
+            defaultValue={user.name}
+            required
+          />
+          <Field
+            label="Phone number"
+            name="phone"
+            type="tel"
+            defaultValue={user.phone}
+            required
+          />
+        </div>
+        <div className="form-row">
+          <label className="field">
+            <span>Cake size & servings</span>
+            <select name="size" required>
+              <option value="">Choose a size</option>
+              <option>15 cm · 6–8 servings</option>
+              <option>20 cm · 10–12 servings</option>
+              <option>25 cm · 16–20 servings</option>
+              <option>Not sure — please advise</option>
+            </select>
+          </label>
+          <label className="field">
+            <span>Flavour</span>
+            <select aria-label="Flavour" name="flavour" required>
+              <option value="">Choose a flavour</option>
+              <option>Vanilla</option>
+              <option>Chocolate</option>
+              <option>Red velvet</option>
+              <option>Please advise</option>
+            </select>
+          </label>
+        </div>
+        <label className="field">
+          <span>Filling</span>
+          <select aria-label="Filling" name="filling" required>
+            <option value="">Choose a filling</option>
+            <option>Vanilla buttercream</option>
+            <option>Chocolate buttercream</option>
+            <option>Berry</option>
+            <option>Please advise</option>
+          </select>
+        </label>
+        <label className="field upload">
+          <span>Design inspiration (optional)</span>
+          <input
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            onChange={(e) => {
+              const file = e.target.files[0]
+              setImage(null)
+              if (!file) return
+              const problem = validateImage(file)
+              if (problem) {
+                setError(problem)
+                e.target.value = ''
+                return
+              }
+              setBusy(true)
+              setError('')
+              const reader = new FileReader()
+              reader.onload = () => {
+                setImage({ name: file.name, url: reader.result })
+                setBusy(false)
+              }
+              reader.onerror = () => {
+                setError('The image could not be read. Try another file.')
+                setBusy(false)
+              }
+              reader.readAsDataURL(file)
+            }}
+          />
+          <small>
+            JPG, PNG or WebP · up to 2 MB. Use sample images in this preview.
+          </small>
+          {image && <img src={image.url} alt="Your cake inspiration" />}
+        </label>
+        <label className="field">
+          <span>Theme, cake message or special instructions</span>
+          <textarea
+            name="comments"
+            rows="4"
+            maxLength={2000}
+            placeholder="Tell us what will make your celebration special…"
+            required
+          />
+        </label>
+        <CollectionFields
+          custom
+          blocked={store.blocked}
+          date={date}
+          setDate={setDate}
+          time={time}
+          setTime={setTime}
+        />
+        <Error text={error} />
+        <button className="button dark" disabled={busy}>
+          {busy ? 'Preparing image…' : 'Submit preview quote request ↗'}
+        </button>
+      </form>
+      <aside className="builder-aside">
+        <img src="/images/celebration.jpg" alt="A custom celebration cake" />
+        <div className="panel">
+          <h2>Your idea, beautifully baked.</h2>
+          <ol>
+            <li>Share your preferences and inspiration.</li>
+            <li>Our team reviews and quotes personally.</li>
+            <li>Accept within three days and pay 50%.</li>
+            <li>Pay the balance one day before collection.</li>
+          </ol>
+          <p className="muted">
+            No automatic price. Collection only, with at least seven days’
+            notice. Sizes and options shown are sample catalogue content.
+          </p>
+        </div>
+      </aside>
+    </div>
+  )
+}
+export function Orders({ store, setStore, user, notify }) {
+  const [query, setQuery] = useState('')
+  const orders = store.orders.filter(
+    (o) =>
+      o.owner === user.email &&
+      o.id.toLowerCase().includes(query.toLowerCase()),
+  )
+  const requests = store.requests.filter((q) => q.owner === user.email)
+  function accept(q) {
+    const problem = collectionError(q.date, q.time, true, store.blocked)
+    if (problem) {
+      notify(problem)
+      return
+    }
+    if (quoteExpired(q)) {
+      notify('This quote has expired. Contact the bakery for a new quote.')
+      return
+    }
+    if (store.orders.some((o) => o.quoteId === q.id)) return
+    const order = {
+      id: createId('KSK'),
+      quoteId: q.id,
+      owner: q.owner,
+      name: q.name,
+      phone: q.phone,
+      type: 'Custom',
+      items: [
+        {
+          name: `Custom ${q.flavour} cake`,
+          image: q.image?.url || '/images/celebration.jpg',
+          quantity: 1,
+          size: q.size,
+        },
+      ],
+      total: q.amount,
+      paid: 0,
+      status: 'Awaiting confirmation',
+      date: q.date,
+      time: q.time,
+      slotApproved: true,
+      history: [{ status: 'Awaiting confirmation', at: nowIso() }],
+      payments: [],
+    }
+    setStore((s) => ({
+      ...s,
+      requests: s.requests.map((r) =>
+        r.id === q.id ? { ...r, status: 'Accepted' } : r,
+      ),
+      orders: [order, ...s.orders],
+    }))
+    notify('Quote accepted in preview. Your deposit is awaiting payment.')
+  }
+  return (
+    <>
+      <div className="page-heading">
+        <div>
+          <h1>Your sweet journey</h1>
+          <p className="muted">
+            Quotes, current orders and past celebrations — all together.
+          </p>
+        </div>
+        <label className="search-box">
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Find an order reference"
+            aria-label="Find an order reference"
+          />
+        </label>
+      </div>
+      {requests.length > 0 && (
+        <section className="panel quotes-list">
+          <h2>Your custom quotes</h2>
+          {requests.map((q) => (
+            <article className="quote-row" key={q.id}>
+              <div>
+                <strong>{q.id}</strong>
+                <p>
+                  {q.size} · {q.flavour} · {q.filling}
+                </p>
+                <small>
+                  {q.date} at {q.time}
+                </small>
+              </div>
+              <Badge
+                text={
+                  q.status === 'Quoted' && quoteExpired(q)
+                    ? 'Expired'
+                    : q.status
+                }
+              />
+              {q.amount && <strong>{money(q.amount)}</strong>}
+              {q.status === 'Quoted' && !quoteExpired(q) && (
+                <div>
+                  <p className="muted">Valid until {formatTime(q.expiresAt)}</p>
+                  <p>{q.notes}</p>
+                  <button className="button dark" onClick={() => accept(q)}>
+                    Accept quote
+                  </button>
+                  <button
+                    className="text-button"
+                    onClick={() =>
+                      setStore((s) => ({
+                        ...s,
+                        requests: s.requests.map((r) =>
+                          r.id === q.id ? { ...r, status: 'Declined' } : r,
+                        ),
+                      }))
+                    }
+                  >
+                    Decline
+                  </button>
+                </div>
+              )}
+            </article>
+          ))}
+        </section>
+      )}
+      {!orders.length && (
+        <Empty
+          title="No matching orders yet"
+          text="Your orders will appear here once you place one."
+        />
+      )}
+      {orders.map((o) => (
+        <OrderCard key={o.id} order={o} setStore={setStore} notify={notify} />
+      ))}
+      <p className="muted">
+        Only records belonging to your selected preview customer are shown. Real
+        access control must be enforced by the backend.
+      </p>
+    </>
+  )
+}
+function OrderCard({ order: o, setStore, notify }) {
+  const [proof, setProof] = useState(null),
+    [error, setError] = useState('')
+  const state = paymentState(o),
+    stages = ['Confirmed', 'In progress', 'Ready for collection', 'Collected']
+  return (
+    <article className="panel order-card">
+      <div className="page-heading">
+        <div>
+          <p className="eyebrow">{o.type.toUpperCase()} ORDER</p>
+          <h2>Order {o.id}</h2>
+        </div>
+        <Badge text={o.status} />
+      </div>
+      <div className="timeline">
+        {stages.map((s, i) => (
+          <div className={stages.indexOf(o.status) >= i ? 'done' : ''} key={s}>
+            <span>{i + 1}</span>
+            <strong>{s}</strong>
+          </div>
+        ))}
+      </div>
+      <div className="order-details">
+        <div>
+          <h3>Your selection</h3>
+          {o.items.map((item, i) => (
+            <div className="order-product" key={i}>
+              <img src={item.image} alt={item.name} />
+              <div>
+                <strong>{item.name}</strong>
+                <p>
+                  {item.size} · Qty {item.quantity}
+                </p>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div>
+          <h3>Collection information</h3>
+          <p>
+            Lenasia South, Migson Manor
+            <br />
+            {o.date} · {o.time}
+            <br />
+            <small>
+              {o.slotApproved
+                ? 'Collection time approved'
+                : 'Collection time awaiting bakery approval'}
+            </small>
+          </p>
+        </div>
+        <div>
+          <h3>Payment</h3>
+          <Badge text={state} />
+          <p>
+            Total: {money(o.total)}
+            <br />
+            Paid: {money(o.paid)}
+            <br />
+            <strong>Outstanding: {money(outstandingAmount(o))}</strong>
+          </p>
+          {o.type === 'Custom' && o.paid < o.total && (
+            <small>
+              Balance due {addDays(o.date, -1)}. Initial deposit:{' '}
+              {money(depositAmount(o.total))}.
+            </small>
+          )}
+        </div>
+      </div>
+      {o.paid < o.total && !['Cancelled', 'Collected'].includes(o.status) && (
+        <details className="payment-details">
+          <summary>Submit preview EFT proof</summary>
+          <p className="muted">
+            No real bank/payment connection. Proof remains unverified until
+            reviewed by authorised staff.
+          </p>
+          <input
+            type="file"
+            aria-label="EFT proof"
+            accept="image/jpeg,image/png,image/webp"
+            onChange={(e) => {
+              const f = e.target.files[0]
+              setProof(null)
+              if (!f) return
+              const problem = validateImage(f)
+              setError(problem)
+              if (!problem) {
+                const reader = new FileReader()
+                reader.onload = () =>
+                  setProof({ name: f.name, url: reader.result })
+                reader.readAsDataURL(f)
+              }
+            }}
+          />
+          <button
+            className="button outline"
+            disabled={
+              !proof ||
+              o.payments.some((p) => p.status === 'Awaiting verification')
+            }
+            onClick={() => {
+              const p = {
+                id: createId('PAY'),
+                method: 'EFT',
+                amount:
+                  o.type === 'Custom' && o.paid === 0
+                    ? depositAmount(o.total)
+                    : outstandingAmount(o),
+                status: 'Awaiting verification',
+                proof,
+              }
+              setStore((s) => ({
+                ...s,
+                orders: s.orders.map((r) =>
+                  r.id === o.id ? { ...r, payments: [...r.payments, p] } : r,
+                ),
+              }))
+              setProof(null)
+              notify(
+                'Preview proof submitted. Payment is awaiting verification.',
+              )
+            }}
+          >
+            Submit proof
+          </button>
+          <Error text={error} />
+          {o.payments.some((p) => p.status === 'Awaiting verification') && (
+            <p className="muted">Payment awaiting verification.</p>
+          )}
+        </details>
+      )}
+      {!['Collected', 'Cancelled'].includes(o.status) && (
+        <button
+          className="text-button"
+          disabled={o.cancelRequested}
+          onClick={() => {
+            setStore((s) => ({
+              ...s,
+              orders: s.orders.map((r) =>
+                r.id === o.id ? { ...r, cancelRequested: true } : r,
+              ),
+            }))
+            notify('Cancellation requested. Admin will review it.')
+          }}
+        >
+          {o.cancelRequested
+            ? 'Cancellation requested'
+            : 'Request cancellation'}
+        </button>
+      )}
+      <details className="history">
+        <summary>Order history</summary>
+        {o.history.map((h, i) => (
+          <p key={i}>
+            {h.status} · {formatDate(h.at)}
+          </p>
+        ))}
+      </details>
+    </article>
+  )
+}
+export function Badge({ text }) {
+  return (
+    <span
+      className={`badge ${['Collected', 'Fully paid', 'Accepted', 'Verified'].includes(text) ? 'success' : ''}`}
+    >
+      {text}
+    </span>
+  )
+}
+export function Empty({ title, text, action, label }) {
+  return (
+    <div className="empty-state">
+      <h2>{title}</h2>
+      {text && <p className="muted">{text}</p>}
+      {action && (
+        <button className="button dark" onClick={action}>
+          {label}
+        </button>
+      )}
+    </div>
+  )
+}
+export function Contact({ store, setStore, user, notify }) {
+  const [sent, setSent] = useState(false)
+  return (
+    <>
+      <h1>Let’s talk something sweet</h1>
+      <p className="muted">
+        A question, an idea or a celebration to plan? We’re here to help.
+      </p>
+      <div className="checkout-layout">
+        <form
+          className="panel form"
+          onSubmit={(e) => {
+            e.preventDefault()
+            const f = new FormData(e.currentTarget)
+            setStore({
+              ...store,
+              enquiries: [
+                {
+                  id: createId('ENQ'),
+                  name: f.get('name'),
+                  email: f.get('email'),
+                  subject: f.get('subject'),
+                  message: f.get('message'),
+                  status: 'New',
+                },
+                ...store.enquiries,
+              ],
+            })
+            setSent(true)
+            notify(
+              'Preview enquiry saved locally. It has not been sent to the bakery.',
+            )
+          }}
+        >
+          {sent ? (
+            <Empty
+              title="Your preview enquiry is saved"
+              text="The team can review it in the portal preview."
+            />
+          ) : (
+            <>
+              <h2>Send an enquiry</h2>
+              <Field
+                label="Your name"
+                name="name"
+                defaultValue={user?.name}
+                required
+              />
+              <Field
+                label="Email address"
+                name="email"
+                type="email"
+                defaultValue={user?.email}
+                required
+              />
+              <Field label="Subject" name="subject" required maxLength={150} />
+              <label className="field">
+                <span>Your message</span>
+                <textarea name="message" rows="5" required maxLength={2000} />
+              </label>
+              <button className="button dark">Save preview enquiry</button>
+            </>
+          )}
+        </form>
+        <aside className="panel">
+          <p className="eyebrow">COME COLLECT A LITTLE JOY</p>
+          <h2>
+            Find us in
+            <br />
+            Lenasia South.
+          </h2>
+          <p>
+            Migson Manor, Lenasia South
+            <br />
+            Collection only.
+          </p>
+          <h3>Opening hours</h3>
+          <p>
+            Monday–Friday · 09:00–17:00
+            <br />
+            Saturday · 09:00–15:00
+            <br />
+            Closed Sundays
+          </p>
+          <p className="muted">
+            The bakery’s exact collection address, phone number, email and
+            WhatsApp link will be added once supplied.
+          </p>
+        </aside>
+      </div>
+    </>
+  )
+}
