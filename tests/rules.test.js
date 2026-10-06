@@ -113,3 +113,15 @@ test('odd-cent quotes split into a rounded deposit and exact remaining balance',
     0.3,
   )
 })
+import { assetUrl } from '../src/assets.js'
+test('repository-hosted media paths preserve uploaded images', () => {
+  assert.equal(
+    assetUrl('/images/chocolate.jpg', '/bakery/'),
+    '/bakery/images/chocolate.jpg',
+  )
+  assert.equal(
+    assetUrl('data:image/png;base64,sample', '/bakery/'),
+    'data:image/png;base64,sample',
+  )
+  assert.equal(assetUrl('/images/chocolate.jpg', '/'), '/images/chocolate.jpg')
+})

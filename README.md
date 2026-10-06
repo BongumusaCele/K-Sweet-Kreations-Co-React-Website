@@ -41,8 +41,27 @@ npm run test:e2e
 npm run format:check
 ```
 
-`npm run preview` serves the generated `dist/` build. Browser tests cover catalogue/cart, account gates, quote-to-order workflow, payment/collection guards, ownership preview, staff restrictions, feedback moderation and responsive layouts. GitHub Actions runs format, lint, unit tests, build and browser tests when `develop` is updated on GitHub, including when a feature branch is merged into it. A local merge triggers the workflow only after it is pushed. Feature-branch pushes and opening pull requests do not trigger this workflow. Deployment is not configured yet.
+`npm run preview` serves the generated `dist/` build. Browser tests cover catalogue/cart, account gates, quote-to-order workflow, payment/collection guards, ownership preview, staff restrictions, feedback moderation and responsive layouts. GitHub Actions runs format, lint, unit tests, build and browser tests when `develop` is updated on GitHub, including when a feature branch is merged into it. A local merge triggers the workflow only after it is pushed. Feature-branch pushes and opening pull requests do not trigger this workflow. After every check passes, the same workflow publishes the verified build to GitHub Pages.
 
 ## Branches and commits
 
 Start each `feature/<name>` or `test/<name>` from `develop`, commit and push independently, then integrate verified work into `develop`. `main` remains the tested release branch. Use `feat`, `fix`, `test`, `docs`, `refactor` and `style` prefixes. See [AGENTS.md](AGENTS.md).
+
+## Client preview hosting
+
+Preview URL: https://bongumusacele.github.io/K-Sweet-Kreations-Co-React-Website/
+
+The workflow runs only when `develop` is updated on GitHub. It runs formatting, lint, unit tests, production build, browser workflows and a smoke test under the repository URL path. The deploy job depends on successful verification and publishes the exact `dist/` artifact to GitHub Pages. Older in-progress runs are cancelled when a newer develop update arrives. `main` is not automatically published.
+
+GitHub Pages uses the GitHub Actions publishing source. The production build receives `VITE_BASE_PATH=/K-Sweet-Kreations-Co-React-Website/`; local development still uses `/`. Images stored in preview records are resolved through `src/assets.js` so both URLs work. Hash navigation supports client routes and reloads on static hosting.
+
+To verify the repository-hosted build locally in PowerShell:
+
+```powershell
+$env:VITE_BASE_PATH='/K-Sweet-Kreations-Co-React-Website/'
+npm run build
+Remove-Item Env:VITE_BASE_PATH
+npm run test:pages
+```
+
+GitHub Pages publishes only the frontend preview. Each browser has its own sample records. The client can review Customer, Admin and Staff screens using the preview selector, but no real account, order, payment or notification is created. Use sample details only.

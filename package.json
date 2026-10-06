@@ -11,7 +11,8 @@
     "test": "node --test tests/rules.test.js",
     "test:e2e": "playwright test",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "test:pages": "playwright test --config playwright.pages.config.js"
   },
   "dependencies": {
     "react": "^19.2.8",

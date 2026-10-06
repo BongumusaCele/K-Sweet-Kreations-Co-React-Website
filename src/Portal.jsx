@@ -1,4 +1,5 @@
-﻿import { useState } from 'react'
+﻿import { assetUrl } from './assets'
+import { useState } from 'react'
 import { money } from './data'
 import { Badge, Field, Error, Empty } from './Customer'
 import {
@@ -247,7 +248,10 @@ export default function Portal({ store, setStore, role, setRole, notify }) {
                       <br />
                       makes a difference.
                     </h2>
-                    <img src="/images/cupcakes.jpg" alt="Cupcake selection" />
+                    <img
+                      src={assetUrl('/images/cupcakes.jpg')}
+                      alt="Cupcake selection"
+                    />
                     <p className="muted">
                       Review requests, approve collection times and keep
                       customers updated.
@@ -407,7 +411,7 @@ export default function Portal({ store, setStore, role, setRole, notify }) {
                         <tr key={p.id}>
                           <td>
                             <div className="table-product">
-                              <img src={p.image} alt="" />
+                              <img src={assetUrl(p.image)} alt="" />
                               <strong>{p.name}</strong>
                             </div>
                           </td>

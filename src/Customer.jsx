@@ -1,4 +1,5 @@
-﻿import { useState } from 'react'
+﻿import { assetUrl } from './assets'
+import { useState } from 'react'
 import { money } from './data'
 import {
   addDays,
@@ -88,7 +89,10 @@ export function Account({ user, setUser, go, pending, notify }) {
           all in one place.
         </h2>
         <p>Keep your quotes, orders and collection details together.</p>
-        <img src="/images/cupcakes.jpg" alt="Cupcakes with piped frosting" />
+        <img
+          src={assetUrl('/images/cupcakes.jpg')}
+          alt="Cupcakes with piped frosting"
+        />
       </div>
       <form
         className="auth-card form"
@@ -283,7 +287,7 @@ export function Cart({ cart, setCart, store, go, user, requireAccount }) {
               return (
                 <article className="cart-item" key={item.id}>
                   <img
-                    src={p?.image || item.image}
+                    src={assetUrl(p?.image || item.image)}
                     alt={p?.name || item.name}
                   />
                   <div>
@@ -660,7 +664,10 @@ export function Builder({ store, setStore, user, go, notify }) {
         </button>
       </form>
       <aside className="builder-aside">
-        <img src="/images/celebration.jpg" alt="A custom celebration cake" />
+        <img
+          src={assetUrl('/images/celebration.jpg')}
+          alt="A custom celebration cake"
+        />
         <div className="panel">
           <h2>Your idea, beautifully baked.</h2>
           <ol>
@@ -839,7 +846,7 @@ function OrderCard({ order: o, setStore, notify }) {
           <h3>Your selection</h3>
           {o.items.map((item, i) => (
             <div className="order-product" key={i}>
-              <img src={item.image} alt={item.name} />
+              <img src={assetUrl(item.image)} alt={item.name} />
               <div>
                 <strong>{item.name}</strong>
                 <p>

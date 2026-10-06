@@ -1,4 +1,5 @@
-﻿import { useState } from 'react'
+﻿import { assetUrl } from './assets'
+import { useState } from 'react'
 import { Field, Empty, Badge } from './Customer'
 import { createId } from './store'
 import Dialog from './Dialog'
@@ -21,7 +22,7 @@ export function Gallery() {
       <div className="gallery-grid">
         {photos.map(([id, title]) => (
           <button key={id} onClick={() => setPhoto({ id, title })}>
-            <img src={`/images/${id}.jpg`} alt={title} />
+            <img src={assetUrl(`/images/${id}.jpg`)} alt={title} />
             <span>{title} ↗</span>
           </button>
         ))}
@@ -31,7 +32,7 @@ export function Gallery() {
           <h2 id="gallery-title">{photo.title}</h2>
           <img
             className="gallery-large"
-            src={`/images/${photo.id}.jpg`}
+            src={assetUrl(`/images/${photo.id}.jpg`)}
             alt={photo.title}
           />
         </Dialog>
@@ -43,7 +44,7 @@ export function About({ go }) {
   return (
     <div className="custom-section about-section">
       <img
-        src="/images/celebration.jpg"
+        src={assetUrl('/images/celebration.jpg')}
         alt="A decorated cake for a celebration"
       />
       <div>

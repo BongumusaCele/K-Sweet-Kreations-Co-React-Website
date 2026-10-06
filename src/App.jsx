@@ -1,4 +1,5 @@
-﻿import { useEffect, useState } from 'react'
+﻿import { assetUrl } from './assets'
+import { useEffect, useState } from 'react'
 import { money } from './data'
 import { usePreviewStore } from './store'
 import {
@@ -79,7 +80,7 @@ export default function App() {
         onClick={() => setSelected(p)}
         aria-label={`View ${p.name}`}
       >
-        <img src={p.image} alt={p.name} loading="lazy" />
+        <img src={assetUrl(p.image)} alt={p.name} loading="lazy" />
         <span className="tag">{p.category}</span>
       </button>
       <div className="product-body">
@@ -223,7 +224,7 @@ export default function App() {
             </div>
             <div className="hero-photo">
               <img
-                src="/images/chocolate.jpg"
+                src={assetUrl('/images/chocolate.jpg')}
                 alt="Chocolate celebration cake with rich frosting"
               />
               <div className="photo-note">
@@ -246,7 +247,7 @@ export default function App() {
           </section>
           <section className="custom-section">
             <img
-              src="/images/celebration.jpg"
+              src={assetUrl('/images/celebration.jpg')}
               alt="A carefully decorated celebration cake"
               loading="lazy"
             />
@@ -548,7 +549,7 @@ export default function App() {
           labelledBy="product-title"
           onClose={() => setSelected(null)}
         >
-          <img src={selected.image} alt={selected.name} />
+          <img src={assetUrl(selected.image)} alt={selected.name} />
           <div>
             <p className="eyebrow">{selected.category}</p>
             <h2 id="product-title">{selected.name}</h2>
