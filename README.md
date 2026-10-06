@@ -41,7 +41,7 @@ npm run test:e2e
 npm run format:check
 ```
 
-`npm run preview` serves the generated `dist/` build. Browser tests cover catalogue/cart, account gates, quote-to-order workflow, payment/collection guards, ownership preview, staff restrictions, feedback moderation and responsive layouts. GitHub Actions runs format, lint, unit tests, build and browser tests.
+`npm run preview` serves the generated `dist/` build. Browser tests cover catalogue/cart, account gates, quote-to-order workflow, payment/collection guards, ownership preview, staff restrictions, feedback moderation and responsive layouts. GitHub Actions runs format, lint, unit tests, build and browser tests when `develop` is updated on GitHub, including when a feature branch is merged into it. A local merge triggers the workflow only after it is pushed. Feature-branch pushes and opening pull requests do not trigger this workflow. Deployment is not configured yet.
 
 ## Branches and commits
 

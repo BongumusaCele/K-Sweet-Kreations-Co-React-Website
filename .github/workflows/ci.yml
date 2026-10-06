@@ -1,9 +1,7 @@
 ﻿name: Website checks
 on:
   push:
-    branches: [main, develop, 'feature/**', 'test/**']
-  pull_request:
-    branches: [main, develop]
+    branches: [develop]
 permissions:
   contents: read
 jobs:
