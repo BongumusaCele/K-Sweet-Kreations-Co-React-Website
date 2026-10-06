@@ -156,7 +156,7 @@ export default function Portal({ store, setStore, role, setRole, notify }) {
               onClick={() => setRole('Customer')}
               aria-label="Return to customer website"
             >
-              ↗
+              Website
             </button>
           </div>
         </aside>
@@ -184,7 +184,7 @@ export default function Portal({ store, setStore, role, setRole, notify }) {
                 className="button outline"
                 onClick={() => setRole('Customer')}
               >
-                View customer website ↗
+                View customer website
               </button>
             </div>
             {tab === 'Overview' && (
@@ -230,7 +230,7 @@ export default function Portal({ store, setStore, role, setRole, notify }) {
                         className="text-button"
                         onClick={() => setTab('Orders')}
                       >
-                        View all ↗
+                        View all
                       </button>
                     </div>
                     <OrderTable

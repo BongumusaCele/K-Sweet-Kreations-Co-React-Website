@@ -23,7 +23,7 @@ export function Gallery() {
         {photos.map(([id, title]) => (
           <button key={id} onClick={() => setPhoto({ id, title })}>
             <img src={assetUrl(`/images/${id}.jpg`)} alt={title} />
-            <span>{title} ↗</span>
+            <span>{title}</span>
           </button>
         ))}
       </div>
@@ -65,7 +65,7 @@ export function About({ go }) {
           Closed Sundays.
         </p>
         <button className="button dark" onClick={() => go('builder')}>
-          Plan your custom cake ↗
+          Plan your custom cake
         </button>
       </div>
     </div>

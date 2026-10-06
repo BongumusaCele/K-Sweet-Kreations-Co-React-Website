@@ -214,7 +214,7 @@ export default function App() {
               </p>
               <div className="button-row">
                 <button className="button dark" onClick={() => go('shop')}>
-                  Explore our cakes ↗
+                  Explore our cakes
                 </button>
                 <button className="button light" onClick={() => go('builder')}>
                   Create your cake
@@ -275,7 +275,7 @@ export default function App() {
                 </span>
               </div>
               <button className="button dark" onClick={() => go('builder')}>
-                Request a custom cake ↗
+                Request a custom cake
               </button>
               <small>
                 Every custom cake is quoted personally by our bakery.
@@ -323,7 +323,7 @@ export default function App() {
               <p>Let’s turn your cake idea into a sweet celebration.</p>
             </div>
             <button className="button light" onClick={() => go('builder')}>
-              Let’s create it ↗
+              Let’s create it
             </button>
           </section>
         </>
@@ -622,7 +622,7 @@ function SectionTitle({ title, eyebrow, go }) {
         <p className="muted">Find a favourite for your next celebration.</p>
       </div>
       <button className="text-button" onClick={go}>
-        View all treats ↗
+        View all treats
       </button>
     </div>
   )

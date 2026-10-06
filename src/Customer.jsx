@@ -660,7 +660,7 @@ export function Builder({ store, setStore, user, go, notify }) {
         />
         <Error text={error} />
         <button className="button dark" disabled={busy}>
-          {busy ? 'Preparing image…' : 'Submit preview quote request ↗'}
+          {busy ? 'Preparing image…' : 'Submit preview quote request'}
         </button>
       </form>
       <aside className="builder-aside">
