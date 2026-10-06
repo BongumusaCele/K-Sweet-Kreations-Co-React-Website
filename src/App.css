@@ -1,0 +1,16 @@
+.starter {
+  width: min(100% - 3rem, 48rem);
+  margin: auto;
+  padding: 5rem 0;
+}
+
+.eyebrow {
+  font-weight: 700;
+  color: #8b3b60;
+}
+
+h1 {
+  font-size: clamp(2.5rem, 7vw, 4.5rem);
+  line-height: 1.1;
+  margin: 1rem 0;
+}
