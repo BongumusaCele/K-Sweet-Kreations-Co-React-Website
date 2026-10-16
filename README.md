@@ -1,67 +1,50 @@
-﻿# K Sweet Kreations Co
+# K Sweet Kreations Co website
 
-React website preview following the supplied bakery design and approved requirements. The customer storefront and Admin/Staff workspace use the same pink/lilac and deep-purple visual style.
+React 19 / Vite storefront with authenticated Customer, Staff and Admin workflows backed by the sibling ASP.NET Core API. Products, accounts, requests, quotations, orders, payments, enquiries, feedback and blocked collection dates are persisted by the API. There is no preview role switch, simulated sign-in or local-storage database.
 
-## Run locally
+## Local development
 
-Use Node.js 24 LTS and npm.
+1. Follow the backend repository's README to configure secrets and apply its SQL Server migrations. Start the API on `http://localhost:5088` using the `http` launch profile.
+2. In this repository, run `npm ci`, then `npm run dev` with Node.js 24.
+3. Open the Vite URL. The development server proxies `/api` and `/uploads` to the backend. Copy `.env.example` to `.env.local` to change the target.
 
-```sh
-npm ci
-npm run dev
-```
+Register a Customer account through the website. Sign in with the configured Admin account to open the bakery workspace and create Staff accounts or products. An empty database displays an empty catalogue until Admin adds products. Staff can review requests, issue manual quotations, approve collection times, progress orders and handle enquiries. Product management, payment verification, blocked dates, feedback publication and Staff-account creation require Admin.
 
-Open the URL printed by Vite. Use the **View as** selector to preview Customer, Admin or Staff. For the customer account preview, use `customer@example.com` and any sample password of at least eight characters. No password is saved or verified, and no real account is created.
+## Workflows and failures
 
-## Included interfaces
+- Standard checkout sends product IDs and quantities. The API calculates prices and validates availability and collection details. Full EFT payment and collection approval are required before confirmation.
+- Custom requests use manual quotations valid for three days. Acceptance creates one order. Verified 50% deposit and approved collection confirm a booking; the balance is due one day before collection. Handover requires full payment.
+- Submit JPG/PNG/WebP inspiration images and EFT proofs up to 2 MB. The server validates file signatures. Private images/proofs require authentication and ownership or bakery permissions.
+- Forms show validation and API errors, preserve failed input and prevent duplicate clicks. Stable submission IDs protect order/request retries. Network failures, timeouts, permission failures, expired sessions and rate limits have readable messages. A failed refresh after a successful save is reported separately so the UI does not ask the user to submit a saved record again.
+- Sessions use an HTTP-only cookie. Tokens and customer records are not stored in browser storage. Sign-out revokes the server session. Reloading restores a valid account from the API.
 
-- Home, catalogue/search/categories/sorting, product details, gallery, bakery information, FAQs, contact/enquiries and moderated feedback.
-- Cart, account forms/profile, collection checkout, simple custom cake request with inspiration upload, manual quote acceptance and order history/tracking.
-- Admin/Staff dashboard, request review/manual quoting, order progress, collection diary, enquiries and feedback review.
-- Admin product availability/management, date blocking, payment-proof verification preview and customer directory.
-
-## Preview boundary
-
-This repository currently contains the frontend, not an ASP.NET Core backend. Orders, quotes, enquiries, uploaded sample images and feedback are stored in this browser’s local storage under `ksk-preview-v1`. Customer sign-in is held in memory. Use sample details only. Clear that local-storage key to reset the workspace.
-
-The visible role selector is a preview tool, not authentication or authorisation. Customer records are filtered in the UI to demonstrate ownership, but that does not protect data. Card payment is unavailable, EFT verification is simulated, and no email, SMS or WhatsApp messages are sent. Password recovery and account/role administration require the identity service. Contact details and payment-provider/banking information have not been supplied.
-
-Do not use this preview for real orders or personal data. See [backend integration](docs/backend-integration.md) for the remaining production work and [requirements review](docs/requirements-review.md) for agreed business rules.
-
-Sample products, prices, cake options and stock photography must be replaced/approved by the bakery. No real testimonials, promotions or contact details are invented.
+EFT is the implemented payment method. Supply bakery-owned banking/contact details operationally; the application does not invent them. Card gateways, automatic bank reconciliation, email/SMS/WhatsApp delivery and password-recovery email are not configured. Unavailable controls are not presented as successful operations.
 
 ## Checks
 
 ```sh
 npm run lint
 npm test
-npm run build
-npx playwright install chromium
-npm run test:e2e
 npm run format:check
-```
-
-`npm run preview` serves the generated `dist/` build. Browser tests cover catalogue/cart, account gates, quote-to-order workflow, payment/collection guards, ownership preview, staff restrictions, feedback moderation and responsive layouts. GitHub Actions runs format, lint, unit tests, build and browser tests when `develop` is updated on GitHub, including when a feature branch is merged into it. A local merge triggers the workflow only after it is pushed. Feature-branch pushes and opening pull requests do not trigger this workflow. After every check passes, the same workflow publishes the verified build to GitHub Pages.
-
-## Branches and commits
-
-Start each `feature/<name>` or `test/<name>` from `develop`, commit and push independently, then integrate verified work into `develop`. `main` remains the tested release branch. Use `feat`, `fix`, `test`, `docs`, `refactor` and `style` prefixes. See [AGENTS.md](AGENTS.md).
-
-## Client preview hosting
-
-Preview URL: https://bongumusacele.github.io/K-Sweet-Kreations-Co-React-Website/
-
-The workflow runs only when `develop` is updated on GitHub. It runs formatting, lint, unit tests, production build, browser workflows and a smoke test under the repository URL path. The deploy job depends on successful verification and publishes the exact `dist/` artifact to GitHub Pages. Older in-progress runs are cancelled when a newer develop update arrives. `main` is not automatically published.
-
-GitHub Pages uses the GitHub Actions publishing source. The production build receives `VITE_BASE_PATH=/K-Sweet-Kreations-Co-React-Website/`; local development still uses `/`. Images stored in preview records are resolved through `src/assets.js` so both URLs work. Hash navigation supports client routes and reloads on static hosting.
-
-To verify the repository-hosted build locally in PowerShell:
-
-```powershell
-$env:VITE_BASE_PATH='/K-Sweet-Kreations-Co-React-Website/'
 npm run build
-Remove-Item Env:VITE_BASE_PATH
-npm run test:pages
+npm run test:e2e
 ```
 
-GitHub Pages publishes only the frontend preview. Each browser has its own sample records. The client can review Customer, Admin and Staff screens using the preview selector, but no real account, order, payment or notification is created. Use sample details only.
+Browser tests use explicit API fixtures to test rendering and failure handling. To run the real HTTP/database/browser suite with both repositories checked out beside each other:
+
+```sh
+dotnet build ../K-Sweet-Kreations-Co-Web-API/K-Sweet-Kreations-Co-Backend-API.slnx
+npm run test:integration
+```
+
+The integration runner starts an isolated ASP.NET Core process with a disposable SQLite database, random signing key and test-only Admin credentials. It never uses the real SQL Server connection. The suite covers server-priced checkout, private proofs, roles/ownership, duplicate acceptance and submission, payment verification, unpaid-handover guards, registration/profile persistence, feedback moderation and blocked dates. SQL Server migrations must also be validated against the deployment database.
+
+## Hosting
+
+Use HTTPS and serve the frontend and `/api` from the same origin, or from same-site subdomains with explicit credentialed CORS origins configured on the API. The cookie deliberately uses `SameSite=Strict`; a standalone GitHub Pages domain talking to an unrelated API domain is not a supported authenticated deployment.
+
+For a single ASP.NET Core host, build the frontend and copy the contents of `dist/` into the API's `wwwroot/` before publishing the API. Preserve its `wwwroot/uploads/` media directory. The API serves the root `index.html`; hash navigation supports page reloads. Alternatively configure an HTTPS reverse proxy for `/api` and `/uploads`. Use persistent storage for uploads and configure the SQL Server connection and JWT key through the hosting secret store.
+
+CI checks and packages the build; automatic GitHub Pages publishing has been removed because the website now needs its backend. `VITE_BASE_PATH` remains available for subpath asset builds. `npm run test:pages` verifies asset paths after building with `/K-Sweet-Kreations-Co-React-Website/`.
+
+See [API contracts and configuration](docs/backend-integration.md) for the integration boundary. Repository branching and commit conventions are in [AGENTS.md](AGENTS.md).

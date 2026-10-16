@@ -1,6 +1,8 @@
-﻿import { assetUrl } from './assets'
-import { useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
+import { assetUrl } from './assets'
 import { money } from './data'
+import { useWebsite } from './useWebsite'
+import { AsyncForm, Action } from './Forms'
 import {
   addDays,
   today,
@@ -12,71 +14,58 @@ import {
   paymentState,
   quoteExpired,
   validateImage,
+  validateProof,
 } from './rules'
-import { createId } from './store'
-const nowIso = () => new Date().toISOString()
+
 const formatTime = (value) =>
   new Date(value).toLocaleString('en-ZA', { timeZone: 'Africa/Johannesburg' })
-const formatDate = (value) =>
-  new Date(value).toLocaleDateString('en-ZA', {
-    timeZone: 'Africa/Johannesburg',
-  })
-
-export function Account({ user, setUser, go, pending, notify }) {
-  const [mode, setMode] = useState('login'),
-    [error, setError] = useState('')
+const phonePattern = String.raw`\+?(?=(?:.*[0-9]){7})[0-9 \(\)\-]{7,20}`
+export function Account({ go, pending, notify }) {
+  const { user, login, logout, saveProfile } = useWebsite()
+  const [mode, setMode] = useState('login')
   if (user)
     return (
       <div className="account-layout">
         <aside className="panel">
           <div className="avatar">{user.name.slice(0, 1)}</div>
           <h2>{user.name}</h2>
-          <p className="muted">Customer account preview</p>
-          <button className="button dark" onClick={() => go('tracking')}>
-            My orders & quotes
-          </button>
-          <button
-            className="text-button"
-            onClick={() => {
-              setUser(null)
-              notify('Signed out of the preview.')
-            }}
-          >
+          <p>{user.role} account</p>
+          {user.role === 'Customer' && (
+            <button className="button dark" onClick={() => go('tracking')}>
+              My orders & quotes
+            </button>
+          )}
+          <Action className="text-button" onClick={logout}>
             Sign out
-          </button>
+          </Action>
         </aside>
-        <form
-          className="panel form"
-          onSubmit={(e) => {
-            e.preventDefault()
-            const f = new FormData(e.currentTarget)
-            setUser({ ...user, name: f.get('name'), phone: f.get('phone') })
-            notify('Preview profile updated.')
+        <AsyncForm
+          onSubmit={async (f) => {
+            await saveProfile({ name: f.name.trim(), phone: f.phone.trim() })
+            notify('Profile updated.')
           }}
         >
-          <p className="eyebrow">YOUR DETAILS</p>
-          <h2>A little about you</h2>
+          <h2>Your details</h2>
           <Field
             label="Full name"
             name="name"
             defaultValue={user.name}
+            minLength={2}
+            maxLength={100}
             required
           />
-          <Field
-            label="Email"
-            name="email"
-            type="email"
-            value={user.email}
-            readOnly
-          />
+          <Field label="Email" type="email" value={user.email} readOnly />
           <Field
             label="Phone number"
             name="phone"
             type="tel"
+            pattern={phonePattern}
             defaultValue={user.phone}
+            maxLength={20}
+            required
           />
           <button className="button dark">Save profile</button>
-        </form>
+        </AsyncForm>
       </div>
     )
   return (
@@ -94,47 +83,43 @@ export function Account({ user, setUser, go, pending, notify }) {
           alt="Cupcakes with piped frosting"
         />
       </div>
-      <form
+      <AsyncForm
         className="auth-card form"
-        onSubmit={(e) => {
-          e.preventDefault()
-          const f = new FormData(e.currentTarget)
-          if (mode === 'reset') {
-            setError(
-              'Password recovery will be available when the account service is connected.',
-            )
-            return
-          }
-          setUser({
-            name: f.get('name') || 'Alex',
-            email: f.get('email').toLowerCase().trim(),
-            phone: f.get('phone') || '',
-            role: 'Customer',
-          })
-          notify('Customer preview opened. No real account was created.')
+        key={mode}
+        onSubmit={async (f) => {
+          if (mode === 'register' && f.password !== f.confirmPassword)
+            throw new Error('Passwords must match.')
+          await login(
+            { ...f, email: f.email.trim().toLowerCase() },
+            mode === 'register',
+          )
+          notify(
+            mode === 'register'
+              ? 'Your account has been created.'
+              : 'Welcome back.',
+          )
           go(pending || 'tracking')
         }}
       >
         <p className="eyebrow">K SWEET KREATIONS CO</p>
-        <h2>
-          {mode === 'register'
-            ? 'Create your account'
-            : mode === 'reset'
-              ? 'Forgot password?'
-              : 'Welcome back'}
-        </h2>
-        <p className="auth-hint">
-          Preview only. Use sample details; passwords are neither stored nor
-          verified.
-        </p>
+        <h2>{mode === 'register' ? 'Create your account' : 'Welcome back'}</h2>
         {mode === 'register' && (
           <>
-            <Field label="Full name" name="name" autoComplete="name" required />
+            <Field
+              label="Full name"
+              name="name"
+              autoComplete="name"
+              required
+              minLength={2}
+              maxLength={100}
+            />
             <Field
               label="Phone number"
               name="phone"
               type="tel"
               autoComplete="tel"
+              pattern={phonePattern}
+              maxLength={20}
               required
             />
           </>
@@ -144,60 +129,108 @@ export function Account({ user, setUser, go, pending, notify }) {
           name="email"
           type="email"
           autoComplete="email"
-          defaultValue="customer@example.com"
+          maxLength={150}
           required
         />
-        {mode !== 'reset' && (
+        <Field
+          label="Password"
+          name="password"
+          type="password"
+          autoComplete={
+            mode === 'register' ? 'new-password' : 'current-password'
+          }
+          minLength={8}
+          maxLength={128}
+          required
+        />
+        {mode === 'register' && (
           <Field
-            label="Password"
-            name="password"
+            label="Confirm password"
+            name="confirmPassword"
             type="password"
-            autoComplete={
-              mode === 'register' ? 'new-password' : 'current-password'
-            }
+            autoComplete="new-password"
             minLength={8}
+            maxLength={128}
             required
           />
         )}
-        <Error text={error} />
         <button className="button dark">
-          {mode === 'register'
-            ? 'Register — preview'
-            : mode === 'reset'
-              ? 'Request reset'
-              : 'Sign in — preview'}
+          {mode === 'register' ? 'Create account' : 'Sign in'}
         </button>
         <button
           type="button"
           className="text-button"
-          onClick={() => {
-            setMode(mode === 'register' ? 'login' : 'register')
-            setError('')
-          }}
+          onClick={() => setMode(mode === 'register' ? 'login' : 'register')}
         >
           {mode === 'register'
             ? 'Already have an account? Sign in'
             : 'New here? Create an account'}
         </button>
-        {mode === 'login' && (
-          <button
-            type="button"
-            className="text-button"
-            onClick={() => setMode('reset')}
-          >
-            Forgot password?
-          </button>
-        )}
-      </form>
+      </AsyncForm>
     </div>
   )
 }
+
 export function Field({ label, ...props }) {
+  if (props.type === 'password')
+    return <PasswordField label={label} {...props} />
   return (
     <label className="field">
       <span>{label}</span>
       <input {...props} />
     </label>
+  )
+}
+function PasswordField({ label, id, type: _type, ...props }) {
+  const generatedId = useId()
+  const inputId = id || generatedId
+  const input = useRef(null)
+  const [visible, setVisible] = useState(false)
+  useEffect(() => {
+    const form = input.current?.form
+    const hide = () => setVisible(false)
+    form?.addEventListener('reset', hide)
+    return () => form?.removeEventListener('reset', hide)
+  }, [])
+  return (
+    <div className="field">
+      <label htmlFor={inputId}>{label}</label>
+      <div className="password-input">
+        <input
+          {...props}
+          id={inputId}
+          ref={input}
+          type={visible ? 'text' : 'password'}
+          data-password-field
+        />
+        <button
+          className="password-toggle"
+          type="button"
+          aria-label={`${visible ? 'Hide' : 'Show'} ${label.toLowerCase()}`}
+          aria-controls={inputId}
+          aria-pressed={visible}
+          disabled={props.disabled}
+          onClick={() => setVisible((value) => !value)}
+        >
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+            focusable="false"
+          >
+            <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z" />
+            <circle cx="12" cy="12" r="3" />
+            {visible && <path d="m3 3 18 18" />}
+          </svg>
+        </button>
+      </div>
+    </div>
   )
 }
 export function Error({ text }) {
@@ -247,9 +280,7 @@ export function CollectionFields({
         >
           <option value="">Choose a 30-minute slot</option>
           {slots(date).map((t) => (
-            <option key={t} value={t}>
-              {t}
-            </option>
+            <option key={t}>{t}</option>
           ))}
         </select>
         <small>Your time is provisional until approved.</small>
@@ -262,12 +293,7 @@ export function Cart({ cart, setCart, store, go, user, requireAccount }) {
   return (
     <>
       <div className="page-heading">
-        <div>
-          <h1>Your cart ({cart.reduce((n, i) => n + i.quantity, 0)})</h1>
-          <p className="muted">
-            A little happiness, ready for your next celebration.
-          </p>
-        </div>
+        <h1>Your cart ({cart.reduce((n, i) => n + i.quantity, 0)})</h1>
         <button className="button outline" onClick={() => go('shop')}>
           ← Continue shopping
         </button>
@@ -275,7 +301,6 @@ export function Cart({ cart, setCart, store, go, user, requireAccount }) {
       {!cart.length ? (
         <Empty
           title="Your cart is waiting for something sweet"
-          text="Browse our cakes and find your favourite."
           action={() => go('shop')}
           label="Explore our cakes"
         />
@@ -284,6 +309,20 @@ export function Cart({ cart, setCart, store, go, user, requireAccount }) {
           <div className="panel cart-items">
             {cart.map((item) => {
               const p = store.products.find((p) => p.id === item.id)
+              const quantity = (amount) =>
+                setCart((items) =>
+                  items.map((i) =>
+                    i.id === item.id
+                      ? {
+                          ...i,
+                          quantity: Math.max(
+                            1,
+                            Math.min(20, i.quantity + amount),
+                          ),
+                        }
+                      : i,
+                  ),
+                )
               return (
                 <article className="cart-item" key={item.id}>
                   <img
@@ -304,15 +343,7 @@ export function Cart({ cart, setCart, store, go, user, requireAccount }) {
                   <div className="quantity">
                     <button
                       aria-label={`Decrease ${item.name}`}
-                      onClick={() =>
-                        setCart((items) =>
-                          items.map((i) =>
-                            i.id === item.id
-                              ? { ...i, quantity: Math.max(1, i.quantity - 1) }
-                              : i,
-                          ),
-                        )
-                      }
+                      onClick={() => quantity(-1)}
                     >
                       −
                     </button>
@@ -320,15 +351,7 @@ export function Cart({ cart, setCart, store, go, user, requireAccount }) {
                     <button
                       disabled={item.quantity >= 20}
                       aria-label={`Increase ${item.name}`}
-                      onClick={() =>
-                        setCart((items) =>
-                          items.map((i) =>
-                            i.id === item.id
-                              ? { ...i, quantity: i.quantity + 1 }
-                              : i,
-                          ),
-                        )
-                      }
+                      onClick={() => quantity(1)}
                     >
                       +
                     </button>
@@ -345,9 +368,6 @@ export function Cart({ cart, setCart, store, go, user, requireAccount }) {
                 </article>
               )
             })}
-            <div className="soft-note">
-              ♡ Add a cake message or special instructions at checkout.
-            </div>
           </div>
           <aside className="panel summary">
             <h2>Order summary</h2>
@@ -374,24 +394,21 @@ export function Cart({ cart, setCart, store, go, user, requireAccount }) {
             >
               Proceed to checkout
             </button>
-            <div className="soft-note">
-              <h3>Collection only</h3>
-              <p>
-                Collect from the bakery at your approved time. Standard orders
-                are paid in full.
-              </p>
-            </div>
+            <p>Collection only. Standard orders require full payment.</p>
           </aside>
         </div>
       )}
     </>
   )
 }
-export function Checkout({ cart, setCart, store, setStore, user, go, notify }) {
+export function Checkout({ cart, setCart, go, notify }) {
+  const { store, user, act } = useWebsite()
+  const [submissionId] = useState(() => crypto.randomUUID())
   const [date, setDate] = useState(''),
-    [time, setTime] = useState(''),
-    [error, setError] = useState('')
+    [time, setTime] = useState('')
   const total = cartTotal(cart, store.products)
+  if (user.role !== 'Customer')
+    return <Empty title="Please use a customer account to place an order" />
   if (!cart.length)
     return (
       <Empty
@@ -402,93 +419,61 @@ export function Checkout({ cart, setCart, store, setStore, user, go, notify }) {
     )
   return (
     <div className="checkout-layout">
-      <form
-        className="panel form"
-        onSubmit={(e) => {
-          e.preventDefault()
+      <AsyncForm
+        onSubmit={async (f) => {
           const problem = collectionError(date, time, false, store.blocked)
-          if (problem) {
-            setError(problem)
-            return
-          }
-          if (
-            cart.some((i) => !store.products.find((p) => p.id === i.id)?.active)
-          ) {
-            setError('An item is no longer available. Please update your cart.')
-            return
-          }
-          const f = new FormData(e.currentTarget)
-          const order = {
-            id: createId('KSK'),
-            owner: user.email,
-            name: f.get('name'),
-            phone: f.get('phone'),
-            type: 'Standard',
-            items: cart.map((i) => ({
-              ...store.products.find((p) => p.id === i.id),
-              quantity: i.quantity,
-            })),
-            total,
-            paid: 0,
-            status: 'Awaiting confirmation',
-            slotApproved: false,
+          if (problem) throw new Error(problem)
+          await act('orders', {
+            submissionId,
+            name: f.name.trim(),
+            phone: f.phone.trim(),
             date,
             time,
-            instructions: f.get('instructions'),
-            method: f.get('method'),
-            history: [{ status: 'Awaiting confirmation', at: nowIso() }],
-            payments: [],
-          }
-          setStore((s) => ({ ...s, orders: [order, ...s.orders] }))
+            instructions: f.instructions,
+            items: cart.map((i) => ({ id: i.id, quantity: i.quantity })),
+          })
           setCart([])
-          notify(`Preview order ${order.id} saved. No payment was taken.`)
+          notify(
+            'Your order has been placed. Submit your EFT proof in My orders.',
+          )
           go('tracking')
         }}
       >
-        <p className="eyebrow">THE FINAL DETAILS</p>
         <h2>Collection checkout</h2>
         <div className="form-row">
           <Field
             label="Full name"
             name="name"
             defaultValue={user.name}
+            minLength={2}
+            maxLength={100}
             required
           />
           <Field
             label="Phone number"
             name="phone"
             type="tel"
+            pattern={phonePattern}
             defaultValue={user.phone}
+            maxLength={20}
             required
           />
         </div>
         <CollectionFields
-          date={date}
-          setDate={setDate}
-          time={time}
-          setTime={setTime}
+          {...{ date, setDate, time, setTime }}
           blocked={store.blocked}
         />
         <label className="field">
           <span>Special instructions or cake message</span>
           <textarea name="instructions" rows="3" maxLength={1000} />
         </label>
-        <label className="field">
-          <span>Payment method</span>
-          <select name="method">
-            <option>EFT</option>
-            <option disabled>Card — provider not connected</option>
-          </select>
-        </label>
-        <div className="soft-note">
-          This preview records an unpaid order only. Real checkout and payment
-          processing need the backend and payment provider.
-        </div>
-        <Error text={error} />
-        <button className="button dark">
-          Save preview order · {money(total)}
-        </button>
-      </form>
+        <p className="soft-note">
+          Pay by EFT and submit proof from your order. Payment is confirmed
+          after the bakery verifies receipt. Collection requires bakery
+          approval.
+        </p>
+        <button className="button dark">Place order · {money(total)}</button>
+      </AsyncForm>
       <aside className="panel summary">
         <h2>Your sweet selection</h2>
         {cart.map((i) => (
@@ -498,7 +483,8 @@ export function Checkout({ cart, setCart, store, setStore, user, go, notify }) {
             </span>
             <strong>
               {money(
-                store.products.find((p) => p.id === i.id).price * i.quantity,
+                (store.products.find((p) => p.id === i.id)?.price || 0) *
+                  i.quantity,
               )}
             </strong>
           </div>
@@ -507,261 +493,148 @@ export function Checkout({ cart, setCart, store, setStore, user, go, notify }) {
           <span>Total</span>
           <strong>{money(total)}</strong>
         </div>
-        <p className="muted">
-          Standard purchases: full payment upfront. Your collection slot still
-          needs bakery approval.
-        </p>
+        <p>Final prices are checked when your order is submitted.</p>
       </aside>
     </div>
   )
 }
-export function Builder({ store, setStore, user, go, notify }) {
+export function Builder({ go, notify }) {
+  const { store, user, act } = useWebsite()
+  const [submissionId] = useState(() => crypto.randomUUID())
   const [date, setDate] = useState(''),
-    [time, setTime] = useState(''),
-    [image, setImage] = useState(null),
-    [error, setError] = useState(''),
-    [busy, setBusy] = useState(false)
+    [time, setTime] = useState('')
+  if (user.role !== 'Customer')
+    return <Empty title="Please use a customer account to request a cake" />
   return (
     <div className="checkout-layout">
-      <form
-        className="panel form"
-        onSubmit={(e) => {
-          e.preventDefault()
-          if (busy) return
+      <AsyncForm
+        onSubmit={async (f, form) => {
           const problem = collectionError(date, time, true, store.blocked)
-          if (problem) {
-            setError(problem)
-            return
-          }
-          const f = new FormData(e.currentTarget)
-          const request = {
-            id: createId('QUOTE'),
-            owner: user.email,
-            name: f.get('name'),
-            phone: f.get('phone'),
-            size: f.get('size'),
-            flavour: f.get('flavour'),
-            filling: f.get('filling'),
-            comments: f.get('comments'),
-            date,
-            time,
-            image,
-            status: 'Submitted',
-            createdAt: nowIso(),
-          }
-          setStore((s) => ({ ...s, requests: [request, ...s.requests] }))
-          notify('Your preview cake request is ready for bakery review.')
+          if (problem) throw new Error(problem)
+          const data = new FormData(form)
+          data.set('submissionId', submissionId)
+          data.set('date', date)
+          data.set('time', time)
+          const image = data.get('file')
+          if (image?.size) {
+            const error = validateImage(image)
+            if (error) throw new Error(error)
+          } else data.delete('file')
+          await act('requests', data)
+          notify('Your cake request has been sent to the bakery.')
           go('tracking')
         }}
       >
-        <p className="eyebrow">LET’S MAKE IT YOURS</p>
         <h2>Tell us about your cake</h2>
-        <p className="muted">
-          A few simple details. A personally prepared quotation.
-        </p>
         <div className="form-row">
           <Field
-            label="Your name"
+            label="Full name"
             name="name"
             defaultValue={user.name}
             required
+            minLength={2}
+            maxLength={100}
           />
           <Field
             label="Phone number"
             name="phone"
             type="tel"
+            pattern={phonePattern}
             defaultValue={user.phone}
             required
+            maxLength={20}
           />
         </div>
+        <label className="field">
+          <span>Cake size</span>
+          <select name="size" required>
+            <option value="">Choose size</option>
+            <option>15 cm · 8–10 servings</option>
+            <option>20 cm · 12–16 servings</option>
+            <option>25 cm · 20–24 servings</option>
+          </select>
+        </label>
         <div className="form-row">
           <label className="field">
-            <span>Cake size & servings</span>
-            <select name="size" required>
-              <option value="">Choose a size</option>
-              <option>15 cm · 6–8 servings</option>
-              <option>20 cm · 10–12 servings</option>
-              <option>25 cm · 16–20 servings</option>
-              <option>Not sure — please advise</option>
-            </select>
-          </label>
-          <label className="field">
             <span>Flavour</span>
-            <select aria-label="Flavour" name="flavour" required>
-              <option value="">Choose a flavour</option>
+            <select name="flavour" required>
               <option>Vanilla</option>
               <option>Chocolate</option>
               <option>Red velvet</option>
-              <option>Please advise</option>
+            </select>
+          </label>
+          <label className="field">
+            <span>Filling</span>
+            <select name="filling" required>
+              <option>Vanilla buttercream</option>
+              <option>Chocolate ganache</option>
+              <option>Berry</option>
+              <option>Discuss with bakery</option>
             </select>
           </label>
         </div>
-        <label className="field">
-          <span>Filling</span>
-          <select aria-label="Filling" name="filling" required>
-            <option value="">Choose a filling</option>
-            <option>Vanilla buttercream</option>
-            <option>Chocolate buttercream</option>
-            <option>Berry</option>
-            <option>Please advise</option>
-          </select>
-        </label>
-        <label className="field upload">
-          <span>Design inspiration (optional)</span>
-          <input
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
-            onChange={(e) => {
-              const file = e.target.files[0]
-              setImage(null)
-              if (!file) return
-              const problem = validateImage(file)
-              if (problem) {
-                setError(problem)
-                e.target.value = ''
-                return
-              }
-              setBusy(true)
-              setError('')
-              const reader = new FileReader()
-              reader.onload = () => {
-                setImage({ name: file.name, url: reader.result })
-                setBusy(false)
-              }
-              reader.onerror = () => {
-                setError('The image could not be read. Try another file.')
-                setBusy(false)
-              }
-              reader.readAsDataURL(file)
-            }}
-          />
-          <small>
-            JPG, PNG or WebP · up to 2 MB. Use sample images in this preview.
-          </small>
-          {image && <img src={image.url} alt="Your cake inspiration" />}
-        </label>
-        <label className="field">
-          <span>Theme, cake message or special instructions</span>
-          <textarea
-            name="comments"
-            rows="4"
-            maxLength={2000}
-            placeholder="Tell us what will make your celebration special…"
-            required
-          />
-        </label>
         <CollectionFields
           custom
+          {...{ date, setDate, time, setTime }}
           blocked={store.blocked}
-          date={date}
-          setDate={setDate}
-          time={time}
-          setTime={setTime}
         />
-        <Error text={error} />
-        <button className="button dark" disabled={busy}>
-          {busy ? 'Preparing image…' : 'Submit preview quote request'}
-        </button>
-      </form>
-      <aside className="builder-aside">
-        <img
-          src={assetUrl('/images/celebration.jpg')}
-          alt="A custom celebration cake"
+        <Field
+          label="Inspiration image (optional, JPG/PNG/WebP, up to 2 MB)"
+          name="file"
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
         />
-        <div className="panel">
-          <h2>Your idea, beautifully baked.</h2>
-          <ol>
-            <li>Share your preferences and inspiration.</li>
-            <li>Our team reviews and quotes personally.</li>
-            <li>Accept within three days and pay 50%.</li>
-            <li>Pay the balance one day before collection.</li>
-          </ol>
-          <p className="muted">
-            No automatic price. Collection only, with at least seven days’
-            notice. Sizes and options shown are sample catalogue content.
-          </p>
-        </div>
+        <label className="field">
+          <span>Design, cake message and special instructions</span>
+          <textarea name="comments" rows="4" maxLength={1000} />
+        </label>
+        <button className="button dark">Send cake request</button>
+      </AsyncForm>
+      <aside className="panel">
+        <h2>Made for your celebration</h2>
+        <p>
+          The bakery reviews your design and collection time before preparing a
+          personal quotation. Quotes are valid for three days.
+        </p>
+        <p>
+          A verified 50% deposit confirms your booking once collection is
+          approved. The remaining balance is due one day before collection.
+        </p>
       </aside>
     </div>
   )
 }
-export function Orders({ store, setStore, user, notify }) {
+export function Orders({ notify }) {
+  const { store, user, act, refresh } = useWebsite()
   const [query, setQuery] = useState('')
-  const orders = store.orders.filter(
-    (o) =>
-      o.owner === user.email &&
-      o.id.toLowerCase().includes(query.toLowerCase()),
+  const orders = store.orders.filter((o) =>
+    `${o.reference} ${o.id}`.toLowerCase().includes(query.toLowerCase()),
   )
-  const requests = store.requests.filter((q) => q.owner === user.email)
-  function accept(q) {
-    const problem = collectionError(q.date, q.time, true, store.blocked)
-    if (problem) {
-      notify(problem)
-      return
-    }
-    if (quoteExpired(q)) {
-      notify('This quote has expired. Contact the bakery for a new quote.')
-      return
-    }
-    if (store.orders.some((o) => o.quoteId === q.id)) return
-    const order = {
-      id: createId('KSK'),
-      quoteId: q.id,
-      owner: q.owner,
-      name: q.name,
-      phone: q.phone,
-      type: 'Custom',
-      items: [
-        {
-          name: `Custom ${q.flavour} cake`,
-          image: q.image?.url || '/images/celebration.jpg',
-          quantity: 1,
-          size: q.size,
-        },
-      ],
-      total: q.amount,
-      paid: 0,
-      status: 'Awaiting confirmation',
-      date: q.date,
-      time: q.time,
-      slotApproved: true,
-      history: [{ status: 'Awaiting confirmation', at: nowIso() }],
-      payments: [],
-    }
-    setStore((s) => ({
-      ...s,
-      requests: s.requests.map((r) =>
-        r.id === q.id ? { ...r, status: 'Accepted' } : r,
-      ),
-      orders: [order, ...s.orders],
-    }))
-    notify('Quote accepted in preview. Your deposit is awaiting payment.')
-  }
+  if (user.role !== 'Customer')
+    return <Empty title="Your orders are available in the bakery workspace" />
   return (
     <>
       <div className="page-heading">
-        <div>
-          <h1>Your sweet journey</h1>
-          <p className="muted">
-            Quotes, current orders and past celebrations — all together.
-          </p>
-        </div>
+        <h1>Your sweet journey</h1>
         <label className="search-box">
           <input
+            aria-label="Find an order reference"
+            placeholder="Find an order reference"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Find an order reference"
-            aria-label="Find an order reference"
           />
         </label>
+        <Action className="button outline" onClick={refresh}>
+          Refresh orders
+        </Action>
       </div>
-      {requests.length > 0 && (
+      {!!store.requests.length && (
         <section className="panel quotes-list">
           <h2>Your custom quotes</h2>
-          {requests.map((q) => (
+          {store.requests.map((q) => (
             <article className="quote-row" key={q.id}>
               <div>
-                <strong>{q.id}</strong>
+                <strong>Request {q.id}</strong>
                 <p>
                   {q.size} · {q.flavour} · {q.filling}
                 </p>
@@ -769,34 +642,33 @@ export function Orders({ store, setStore, user, notify }) {
                   {q.date} at {q.time}
                 </small>
               </div>
-              <Badge
-                text={
-                  q.status === 'Quoted' && quoteExpired(q)
-                    ? 'Expired'
-                    : q.status
-                }
-              />
-              {q.amount && <strong>{money(q.amount)}</strong>}
+              <Badge text={q.status} />
+              {q.amount != null && <strong>{money(q.amount)}</strong>}
+              {q.notes && <p>{q.notes}</p>}
               {q.status === 'Quoted' && !quoteExpired(q) && (
                 <div>
-                  <p className="muted">Valid until {formatTime(q.expiresAt)}</p>
-                  <p>{q.notes}</p>
-                  <button className="button dark" onClick={() => accept(q)}>
+                  <p>Valid until {formatTime(q.expiresAt)}</p>
+                  <Action
+                    className="button dark"
+                    onClick={async () => {
+                      await act(`requests/${q.id}/respond`, {
+                        status: 'Accepted',
+                      })
+                      notify(
+                        'Quote accepted. Your deposit is awaiting payment.',
+                      )
+                    }}
+                  >
                     Accept quote
-                  </button>
-                  <button
+                  </Action>
+                  <Action
                     className="text-button"
                     onClick={() =>
-                      setStore((s) => ({
-                        ...s,
-                        requests: s.requests.map((r) =>
-                          r.id === q.id ? { ...r, status: 'Declined' } : r,
-                        ),
-                      }))
+                      act(`requests/${q.id}/respond`, { status: 'Declined' })
                     }
                   >
                     Decline
-                  </button>
+                  </Action>
                 </div>
               )}
             </article>
@@ -810,26 +682,25 @@ export function Orders({ store, setStore, user, notify }) {
         />
       )}
       {orders.map((o) => (
-        <OrderCard key={o.id} order={o} setStore={setStore} notify={notify} />
+        <OrderCard key={o.id} order={o} notify={notify} />
       ))}
-      <p className="muted">
-        Only records belonging to your selected preview customer are shown. Real
-        access control must be enforced by the backend.
-      </p>
     </>
   )
 }
-function OrderCard({ order: o, setStore, notify }) {
-  const [proof, setProof] = useState(null),
-    [error, setError] = useState('')
-  const state = paymentState(o),
-    stages = ['Confirmed', 'In progress', 'Ready for collection', 'Collected']
+function OrderCard({ order: o, notify }) {
+  const { act } = useWebsite()
+  const stages = [
+    'Confirmed',
+    'In progress',
+    'Ready for collection',
+    'Collected',
+  ]
   return (
     <article className="panel order-card">
       <div className="page-heading">
         <div>
           <p className="eyebrow">{o.type.toUpperCase()} ORDER</p>
-          <h2>Order {o.id}</h2>
+          <h2>{o.reference}</h2>
         </div>
         <Badge text={o.status} />
       </div>
@@ -862,23 +733,22 @@ function OrderCard({ order: o, setStore, notify }) {
             Lenasia South, Migson Manor
             <br />
             {o.date} · {o.time}
-            <br />
-            <small>
-              {o.slotApproved
-                ? 'Collection time approved'
-                : 'Collection time awaiting bakery approval'}
-            </small>
+          </p>
+          <p>
+            {o.slotApproved
+              ? 'Collection time approved'
+              : 'Awaiting bakery approval'}
           </p>
         </div>
         <div>
           <h3>Payment</h3>
-          <Badge text={state} />
+          <Badge text={paymentState(o)} />
           <p>
             Total: {money(o.total)}
             <br />
             Paid: {money(o.paid)}
             <br />
-            <strong>Outstanding: {money(outstandingAmount(o))}</strong>
+            Outstanding: {money(outstandingAmount(o))}
           </p>
           {o.type === 'Custom' && o.paid < o.total && (
             <small>
@@ -890,90 +760,77 @@ function OrderCard({ order: o, setStore, notify }) {
       </div>
       {o.paid < o.total && !['Cancelled', 'Collected'].includes(o.status) && (
         <details className="payment-details">
-          <summary>Submit preview EFT proof</summary>
-          <p className="muted">
-            No real bank/payment connection. Proof remains unverified until
-            reviewed by authorised staff.
+          <summary>Submit EFT proof</summary>
+          <p>
+            Transfer{' '}
+            {money(
+              o.type === 'Custom' && o.paid === 0
+                ? depositAmount(o.total)
+                : outstandingAmount(o),
+            )}
+            . Contact the bakery for its verified banking details. Proof is
+            reviewed before payment is confirmed.
           </p>
-          <input
-            type="file"
-            aria-label="EFT proof"
-            accept="image/jpeg,image/png,image/webp"
-            onChange={(e) => {
-              const f = e.target.files[0]
-              setProof(null)
-              if (!f) return
-              const problem = validateImage(f)
-              setError(problem)
-              if (!problem) {
-                const reader = new FileReader()
-                reader.onload = () =>
-                  setProof({ name: f.name, url: reader.result })
-                reader.readAsDataURL(f)
-              }
-            }}
-          />
-          <button
-            className="button outline"
-            disabled={
-              !proof ||
-              o.payments.some((p) => p.status === 'Awaiting verification')
-            }
-            onClick={() => {
-              const p = {
-                id: createId('PAY'),
-                method: 'EFT',
-                amount:
-                  o.type === 'Custom' && o.paid === 0
-                    ? depositAmount(o.total)
-                    : outstandingAmount(o),
-                status: 'Awaiting verification',
-                proof,
-              }
-              setStore((s) => ({
-                ...s,
-                orders: s.orders.map((r) =>
-                  r.id === o.id ? { ...r, payments: [...r.payments, p] } : r,
-                ),
-              }))
-              setProof(null)
-              notify(
-                'Preview proof submitted. Payment is awaiting verification.',
-              )
-            }}
-          >
-            Submit proof
-          </button>
-          <Error text={error} />
-          {o.payments.some((p) => p.status === 'Awaiting verification') && (
-            <p className="muted">Payment awaiting verification.</p>
+          {o.payments.some((p) => p.status === 'Awaiting verification') ? (
+            <p>Payment awaiting verification.</p>
+          ) : (
+            <AsyncForm
+              key={o.payments.length}
+              onSubmit={async (f, form) => {
+                const data = new FormData(form)
+                const error = validateProof(data.get('file'))
+                if (error) throw new Error(error)
+                await act(`orders/${o.id}/proof`, data)
+                notify('Payment proof submitted for verification.')
+              }}
+            >
+              <Field
+                label="Bank payment reference"
+                name="reference"
+                required
+                maxLength={100}
+              />
+              <Field
+                label="EFT proof (PDF/JPG/PNG/WebP, up to 5 MB)"
+                name="file"
+                type="file"
+                accept="application/pdf,image/jpeg,image/png,image/webp"
+                required
+              />
+              <button className="button outline">Submit proof</button>
+            </AsyncForm>
           )}
         </details>
       )}
+      {!!o.payments.length && (
+        <div>
+          <h3>Payment history</h3>
+          {o.payments.map((p) => (
+            <p key={p.id}>
+              {money(p.amount)} · {p.reference} · <Badge text={p.status} />
+            </p>
+          ))}
+        </div>
+      )}
       {!['Collected', 'Cancelled'].includes(o.status) && (
-        <button
+        <Action
           className="text-button"
           disabled={o.cancelRequested}
-          onClick={() => {
-            setStore((s) => ({
-              ...s,
-              orders: s.orders.map((r) =>
-                r.id === o.id ? { ...r, cancelRequested: true } : r,
-              ),
-            }))
+          onClick={async () => {
+            await act(`orders/${o.id}/cancel`)
             notify('Cancellation requested. Admin will review it.')
           }}
         >
           {o.cancelRequested
             ? 'Cancellation requested'
             : 'Request cancellation'}
-        </button>
+        </Action>
       )}
       <details className="history">
         <summary>Order history</summary>
         {o.history.map((h, i) => (
           <p key={i}>
-            {h.status} · {formatDate(h.at)}
+            {h.status} · {formatTime(h.at)}
           </p>
         ))}
       </details>
@@ -1002,77 +859,59 @@ export function Empty({ title, text, action, label }) {
     </div>
   )
 }
-export function Contact({ store, setStore, user, notify }) {
+export function Contact({ notify }) {
+  const { user, act } = useWebsite()
   const [sent, setSent] = useState(false)
   return (
     <>
       <h1>Let’s talk something sweet</h1>
-      <p className="muted">
-        A question, an idea or a celebration to plan? We’re here to help.
-      </p>
+      <p>A question, an idea or a celebration to plan? We’re here to help.</p>
       <div className="checkout-layout">
-        <form
-          className="panel form"
-          onSubmit={(e) => {
-            e.preventDefault()
-            const f = new FormData(e.currentTarget)
-            setStore({
-              ...store,
-              enquiries: [
-                {
-                  id: createId('ENQ'),
-                  name: f.get('name'),
-                  email: f.get('email'),
-                  subject: f.get('subject'),
-                  message: f.get('message'),
-                  status: 'New',
-                },
-                ...store.enquiries,
-              ],
-            })
-            setSent(true)
-            notify(
-              'Preview enquiry saved locally. It has not been sent to the bakery.',
-            )
-          }}
-        >
-          {sent ? (
-            <Empty
-              title="Your preview enquiry is saved"
-              text="The team can review it in the portal preview."
+        {sent ? (
+          <Empty
+            title="Your enquiry has been sent"
+            text="The bakery team will review your message."
+          />
+        ) : (
+          <AsyncForm
+            onSubmit={async (f) => {
+              await act('enquiries', f)
+              setSent(true)
+              notify('Your enquiry has been sent.')
+            }}
+          >
+            <h2>Send an enquiry</h2>
+            <Field
+              label="Your name"
+              name="name"
+              defaultValue={user?.name}
+              required
+              maxLength={100}
             />
-          ) : (
-            <>
-              <h2>Send an enquiry</h2>
-              <Field
-                label="Your name"
-                name="name"
-                defaultValue={user?.name}
+            <Field
+              label="Email address"
+              name="email"
+              type="email"
+              defaultValue={user?.email}
+              required
+              maxLength={150}
+            />
+            <Field label="Subject" name="subject" required maxLength={200} />
+            <label className="field">
+              <span>Your message</span>
+              <textarea
+                name="message"
+                rows="5"
                 required
+                minLength={10}
+                maxLength={2000}
               />
-              <Field
-                label="Email address"
-                name="email"
-                type="email"
-                defaultValue={user?.email}
-                required
-              />
-              <Field label="Subject" name="subject" required maxLength={150} />
-              <label className="field">
-                <span>Your message</span>
-                <textarea name="message" rows="5" required maxLength={2000} />
-              </label>
-              <button className="button dark">Save preview enquiry</button>
-            </>
-          )}
-        </form>
+            </label>
+            <button className="button dark">Send enquiry</button>
+          </AsyncForm>
+        )}
         <aside className="panel">
-          <p className="eyebrow">COME COLLECT A LITTLE JOY</p>
-          <h2>
-            Find us in
-            <br />
-            Lenasia South.
-          </h2>
+          <h2>Find us in Lenasia South</h2>
           <p>
             Migson Manor, Lenasia South
             <br />
@@ -1085,10 +924,6 @@ export function Contact({ store, setStore, user, notify }) {
             Saturday · 09:00–15:00
             <br />
             Closed Sundays
-          </p>
-          <p className="muted">
-            The bakery’s exact collection address, phone number, email and
-            WhatsApp link will be added once supplied.
           </p>
         </aside>
       </div>

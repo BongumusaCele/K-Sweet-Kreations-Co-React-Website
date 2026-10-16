@@ -10,9 +10,23 @@ import {
   paymentState,
   quoteExpired,
   validateImage,
+  validateProof,
   today,
 } from '../src/rules.js'
 const now = new Date('2026-10-06T10:00:00Z')
+test('EFT accepts PDFs and images up to 5 MB, while product photos remain images only', () => {
+  assert.equal(
+    validateProof({ type: 'application/pdf', size: 5 * 1024 * 1024 }),
+    '',
+  )
+  assert.match(
+    validateProof({ type: 'application/pdf', size: 5 * 1024 * 1024 + 1 }),
+    /5 MB/,
+  )
+  assert.match(validateProof({ type: 'text/html', size: 10 }), /PDF/)
+  assert.match(validateProof({ type: 'application/pdf', size: 0 }), /Choose/)
+  assert.match(validateImage({ type: 'application/pdf', size: 10 }), /image/)
+})
 test('South African midnight controls collection dates', () =>
   assert.equal(today(new Date('2026-10-05T23:00:00Z')), '2026-10-06'))
 test('custom requests reject short notice, Sundays, after-hours and blocked dates', () => {

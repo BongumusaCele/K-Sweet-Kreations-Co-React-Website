@@ -1,41 +1,63 @@
-﻿# Backend integration and outstanding production work
+# Website API integration
 
-The current React implementation is a reviewable frontend preview. It must connect to the planned ASP.NET Core/SQL Server service before it can handle real users, orders, payments or staff access. The preview storage in `src/store.js` is a replaceable development adapter; it is not a secure or persistent backend.
+The website uses the ASP.NET Core API in the sibling `K-Sweet-Kreations-Co-Web-API` checkout. The development proxy forwards `/api` and `/uploads` to port 5088. The public API base defaults to `/api`; override `VITE_API_URL` at build time only when using a configured same-site API origin.
 
-## Required service contracts
+## Identity
 
-| Area            | Operations required                                                                                                                                        |
-| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Identity        | Registration, sign-in/out, session refresh/revocation, password recovery, current profile, authorised account/role administration                          |
-| Catalogue       | Public active products/categories and details; Admin product CRUD, prices, size/servings, options and image management                                     |
-| Availability    | Valid collection slots, blocked dates and capacity; authorised slot approval/rescheduling                                                                  |
-| Custom requests | Customer-owned request creation, validated/private uploads, request review and manual quotations                                                           |
-| Quotations      | Amount/notes, three-day expiry, customer acceptance/decline, revision history and atomic conversion to exactly one order                                   |
-| Orders          | Server-priced standard checkout, customer-owned list/detail/history, valid transitions, cancellation requests and Admin decisions                          |
-| Payments        | Hosted card payment sessions and verified provider callbacks; EFT proof submission, authorised verification/rejection, deposit/balance ledger and receipts |
-| Content         | Bakery contact/WhatsApp configuration, gallery, FAQs, feedback moderation and public approved reviews                                                      |
-| Communication   | Enquiries, customer/bakery notifications and retryable background delivery                                                                                 |
+| Method    | Path                 | Purpose                                                                            |
+| --------- | -------------------- | ---------------------------------------------------------------------------------- |
+| POST      | `/api/Auth/register` | Customer registration with fullName, email, phoneNumber, password, confirmPassword |
+| POST      | `/api/Auth/login`    | Email/password sign-in; sets HTTP-only session cookie                              |
+| GET / PUT | `/api/Auth/me`       | Current account / save name and phone                                              |
+| POST      | `/api/Auth/logout`   | Revoke session and clear cookie                                                    |
+| POST      | `/api/Auth/staff`    | Admin creates Staff account                                                        |
 
-Responses need stable IDs, validation errors and concurrency handling. API endpoint names must be agreed with the backend team; this document does not claim that an API already exists.
+The frontend uses `credentials: include`, never reads the JWT, and restores account identity through `/Auth/me`. The API validates session revocation, expiry, active-account state and current role on each authenticated request. Cookies are secure outside Development/Testing; HTTPS must reach the API correctly through any hosting proxy. Configure forwarded headers only for the deployment's trusted proxies.
 
-## Business rules to enforce on the server
+## Website contract
 
-- Public browsing; account required for custom quote requests, orders and purchases.
-- Customer can access only their own profile, requests, quotes and orders.
-- Admin and Staff are distinct roles. Current preview conservatively reserves product management, date blocking, payment verification and feedback publication for Admin. Confirm the final Staff permission matrix before backend implementation.
-- Custom cake prices are manually quoted. Quotes expire after three days. Acceptance must create at most one order and must revalidate availability; production should define how reserved quoted dates interact with the seven-day request lead time.
-- A custom booking needs approved collection and a verified 50% deposit. Balance due one day before collection. Standard purchases require full payment upfront.
-- No handover without full payment. Keep payment state separate from fulfilment state. Failed/repeated callbacks cannot confirm or duplicate orders/payments.
-- Collection only. South African local time, 30-minute slots within opening hours, no Sundays, seven-day custom request lead time and Admin-blocked dates. Standard lead time/capacity is still unspecified; the preview currently permits dates from tomorrow, subject to manual approval. Confirm this before release.
-- Cancellation/refund and rescheduling are manually reviewed. Cancellation does not automatically refund a payment.
-- A ready-for-collection notification failure must not roll back the order update.
+`GET /api/website` returns catalogue, blocked dates and published feedback to anonymous users. Customers additionally receive only their own requests and orders. Admin/Staff receive bakery operational records. The server constructs response DTOs rather than returning tracked account entities or password hashes.
 
-## Production controls and content
+Admin additionally receives `customers` and `staff` account directories, including accounts with no orders or requests. Other roles receive empty directory arrays. Shared records refresh after saves, on navigation, on window focus or reconnection, and every 30 seconds while the page is visible and online. Failed refreshes retain existing records and show a retry message.
 
-Replace the preview role selector and simulated account forms with server-issued sessions and server-side access checks. Hash passwords, protect/rotate session tokens, add staff MFA, rate limits, input validation, ownership checks, audit records and secure environment configuration. Protect private images/proofs; validate actual file content as well as extension/MIME, size and count. Client preview accepts JPG/PNG/WebP up to 2 MB; production limits need confirmation.
+All mutations are explicit API operations; there is no endpoint accepting a replacement browser store.
 
-Replace browser storage with database persistence and protected media storage. Implement transactional stock/availability checks, payment reconciliation and duplicate-event handling. Configure HTTPS, backups, recovery, monitoring and background notifications. Select the payment provider and notification channels, supply bakery-owned banking/contact details and test in staging.
+| Method       | Website path                  | Access                                                                 |
+| ------------ | ----------------------------- | ---------------------------------------------------------------------- |
+| POST         | `/orders`                     | Customer; contact, collection, product IDs/quantities and submissionId |
+| POST         | `/requests`                   | Customer; multipart request fields, submissionId, optional image file  |
+| POST         | `/requests/{id}/quote`        | Admin/Staff; amount and notes                                          |
+| PATCH        | `/requests/{id}/status`       | Admin/Staff; Under review / Declined                                   |
+| POST         | `/requests/{id}/respond`      | Owning Customer; Accepted / Declined                                   |
+| POST         | `/orders/{id}/approve-slot`   | Admin/Staff                                                            |
+| PATCH        | `/orders/{id}/status`         | Admin/Staff; sequential progress, Admin-only cancellation              |
+| POST         | `/orders/{id}/cancel`         | Owning Customer; request cancellation                                  |
+| POST         | `/orders/{id}/proof`          | Owning Customer; multipart reference and image file                    |
+| PATCH        | `/payments/{id}/verify`       | Admin; Verified / Rejected                                             |
+| GET          | `/payments/{id}/proof`        | Owning Customer or Admin/Staff                                         |
+| POST / PUT   | `/products`, `/products/{id}` | Admin                                                                  |
+| PUT / DELETE | `/blocked/{yyyy-MM-dd}`       | Admin                                                                  |
+| POST         | `/enquiries`                  | Public                                                                 |
+| PATCH        | `/enquiries/{id}/status`      | Admin/Staff                                                            |
+| POST         | `/reviews`                    | Customer                                                               |
+| PATCH        | `/reviews/{id}/status`        | Admin; Published / Hidden                                              |
 
-Supply approved products/prices/options/servings, bakery photography/logo, precise collection address, phone/email/WhatsApp, policies and slot capacity. Optional inventory/reporting and account administration require API/data models beyond the original ERD. Kotlin Android remains a separate proposed project using the shared backend.
+Paths in this table are relative to `/api/website`. Add/Edit Product uses multipart `POST /products/upload` or `PUT /products/{id}/upload`, with the product fields and an optional JPG/PNG/WebP `file` up to 2 MB. Editing without a file preserves the existing photograph. Numeric prices use a dot decimal separator regardless of server locale. The existing JSON product endpoints and Admin-only `/api/ProductImages/upload` remain available for API clients. Private inspiration images use `/api/CustomCakeImages/{id}/file`.
 
-No automatic refund, delivery, automatic custom pricing, newsletter discount or invented customer reviews are implemented.
+EFT proofs accept PDF/JPG/PNG/WebP files up to 5 MB. The API checks the actual file signature as well as extension and size. Proof downloads require the owning Customer or Admin/Staff session; PDFs download as attachments. Azure uploads use private Blob containers through the API, with stable website media URLs and no storage credentials in frontend code.
+
+Order/request submissions use a stable UUID. Retrying the same payload reuses the saved submission; changing details under an already saved UUID returns a conflict. Mutations use serializable database transactions, and database uniqueness protects quotation/request conversion and bank references. Payment states are derived from verified payments independently of order progress. Order changes record account IDs in status-history notes.
+
+Errors are ASP.NET validation problem responses or JSON problem/message responses. The client handles 400/401/403/404/409/413/429, timeouts and network errors. Private responses use `Cache-Control: no-store`. Forms retain input on failure and only display success after the API accepts a mutation.
+
+## Migration and deployment
+
+Admin can confirm deletion from the Products list via `DELETE /api/website/products/{id}`. The product disappears from all catalogue snapshots and cannot be purchased, edited or assigned new photographs. Deletion is idempotent and preserves the database row and existing media for historical orders. Staff and Customer requests are forbidden. Apply the `ProductDeletion` migration before deploying this API version; it adds a nullable deletion date without changing existing products.
+
+Apply the backend's `WebsiteIntegration` and `RetrySafeSubmissions` migrations before starting this frontend against an existing database. They add website fields, reviews, blocked dates, submission receipts and uniqueness constraints, rename the stored Consultant role to Staff, and align historical statuses. Historical duplicate bank references or multiple orders for one request cause a migration failure with a review instruction rather than silent deletion. Existing payment-stage orders return to Awaiting confirmation and require collection approval; payment records retain their amounts and verification states.
+
+The older Products, Enquiries, CustomCakeRequest, Quotations, CustomerOrders and Payments controller classes are marked `NonController` and no longer expose the incompatible HTTP contract. They remain temporarily for historical regression tests. Consumers of the former endpoints must move to the routes above. Historical ConsultantId database column names are retained to preserve relationships; the active application role is Staff.
+
+Keep production SQL Server, signing keys and uploaded media outside disposable build outputs. Set exact CORS origins when needed; wildcard credentialed CORS is not used. Request/identity rate limits are configurable. The Testing environment creates a disposable SQLite schema only for automated tests and must not be used for deployment.
+
+Payment-provider callbacks, automated notifications, password-recovery email, staff MFA, quantitative slot capacity and bakery-approved content are separate launch configuration/development items. No automatic refund or delivery workflow is implemented.

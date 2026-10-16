@@ -1,37 +1,46 @@
-﻿import { test, expect } from '@playwright/test'
-test('gallery opens an accessible image dialog and Escape closes it', async ({
+import { test, expect } from '@playwright/test'
+import { mockPublic } from '../fixtures.js'
+test.beforeEach(async ({ page }) => mockPublic(page))
+test('enquiry failure preserves input and only successful submission shows confirmation', async ({
   page,
 }) => {
+  let fail = true
+  await page.route('**/api/website/enquiries', (route) =>
+    fail
+      ? route.fulfill({
+          status: 500,
+          json: { detail: 'Please try again later.' },
+        })
+      : route.fulfill({ status: 204 }),
+  )
+  await page.goto('/#contact')
+  await page.getByLabel('Your name').fill('Test Customer')
+  await page.getByLabel('Email address').fill('test@example.com')
+  await page.getByLabel('Subject').fill('Birthday cake')
+  await page.getByLabel('Your message').fill('Can you make a birthday cake?')
+  await page.getByRole('button', { name: 'Send enquiry', exact: true }).click()
+  await expect(page.getByRole('alert')).toContainText('Please try again later.')
+  await expect(page.getByLabel('Your message')).toHaveValue(
+    'Can you make a birthday cake?',
+  )
+  fail = false
+  await page.getByRole('button', { name: 'Send enquiry', exact: true }).click()
+  await expect(
+    page.getByRole('heading', { name: 'Your enquiry has been sent' }),
+  ).toBeVisible()
+})
+test('gallery uses catalogue images and mobile layout fits', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 })
   await page.goto('/#gallery')
-  await page.getByRole('button', { name: 'Chocolate celebrations' }).click()
+  await expect(page.locator('.gallery-grid button')).toHaveCount(2)
+  await page.locator('.gallery-grid button').first().click()
   await expect(page.getByRole('dialog')).toBeVisible()
   await page.keyboard.press('Escape')
-  await expect(page.getByRole('dialog')).toHaveCount(0)
-})
-test('feedback is hidden until Admin publishes it', async ({ page }) => {
-  await page.goto('/#reviews')
-  await page.getByRole('button', { name: 'Sign in to leave feedback' }).click()
-  await page.getByLabel('Password', { exact: true }).fill('Preview123')
-  await page
-    .getByRole('button', { name: 'Sign in — preview', exact: true })
-    .click()
-  await page
-    .getByLabel('Your feedback')
-    .fill('Sample feedback about a lovely cake.')
-  await page.getByRole('button', { name: 'Submit preview feedback' }).click()
-  await expect(
-    page.getByRole('heading', {
-      name: 'The first sweet words are still to come',
-    }),
-  ).toBeVisible()
-  await page.getByLabel('Preview role').selectOption('Admin')
-  await expect(page.getByText('Admin view', { exact: true })).toBeVisible()
-  await page.getByRole('button', { name: 'Feedback', exact: true }).click()
-  await page.getByRole('button', { name: 'Publish feedback' }).click()
-  await page.getByLabel('Preview role').selectOption('Customer')
-  await expect(
-    page
-      .locator('.review-card')
-      .getByText('Sample feedback about a lovely cake.'),
-  ).toBeVisible()
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true)
 })

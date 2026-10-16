@@ -103,3 +103,13 @@ export function validateImage(file) {
       ? 'Choose an image smaller than 2 MB.'
       : ''
 }
+export function validateProof(file) {
+  if (!file?.size) return 'Choose an EFT proof file.'
+  if (
+    !['application/pdf', 'image/jpeg', 'image/png', 'image/webp'].includes(
+      file.type,
+    )
+  )
+    return 'Choose a PDF, JPG, PNG or WebP proof.'
+  return file.size > 5 * 1024 * 1024 ? 'Choose a proof file up to 5 MB.' : ''
+}
