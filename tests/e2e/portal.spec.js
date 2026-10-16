@@ -1,162 +1,104 @@
-﻿import { test, expect } from '@playwright/test'
-import { addDays, today } from '../../src/rules.js'
-const signIn = async (page) => {
-  await page.getByLabel('Password', { exact: true }).fill('Preview123')
-  await page
-    .getByRole('button', { name: 'Sign in — preview', exact: true })
-    .click()
-}
-test('custom request, manual quote, deposit verification and collection guard', async ({
+import { test, expect } from '@playwright/test'
+import { publicData } from '../fixtures.js'
+
+test('mobile Admin deletion requires confirmation, retains the product on failure and supports retry', async ({
   page,
 }) => {
-  await page.goto('/#account')
-  await signIn(page)
-  await page.getByRole('button', { name: 'Custom cake', exact: true }).click()
-  await page.getByLabel('Phone number', { exact: true }).fill('0000000000')
-  await page
-    .getByLabel('Cake size & servings')
-    .selectOption({ label: '20 cm · 10–12 servings' })
-  await page.getByLabel('Flavour', { exact: true }).selectOption('Chocolate')
-  await page
-    .getByLabel('Filling', { exact: true })
-    .selectOption('Chocolate buttercream')
-  await page
-    .getByLabel('Theme, cake message or special instructions')
-    .fill('A sample birthday cake with flowers')
-  let date = addDays(today(), 10)
-  if (new Date(`${date}T12:00:00Z`).getUTCDay() === 0) date = addDays(date, 1)
-  await page.getByLabel('Preferred collection date').fill(date)
-  await page
-    .getByLabel('Collection time', { exact: true })
-    .selectOption('10:00')
-  await page
-    .getByRole('button', { name: 'Submit preview quote request' })
-    .click()
-  await expect(page.getByText('Submitted', { exact: true })).toBeVisible()
-  await page.getByLabel('Preview role').selectOption('Staff')
-  await expect(page.getByText('Staff view', { exact: true })).toBeVisible()
-  await page.getByRole('button', { name: 'Cake requests', exact: true }).click()
-  await page.getByRole('button', { name: 'Review request' }).click()
-  await page.getByLabel('Final quoted amount (R)').fill('1000')
-  await page
-    .getByLabel('Quote notes and confirmed design')
-    .fill('Sample quote: flowers, chocolate sponge and buttercream.')
-  await page.getByRole('checkbox').check()
-  await page.getByRole('button', { name: 'Save manual quote' }).click()
-  await page.getByLabel('Preview role').selectOption('Customer')
-  await expect(
-    page.getByRole('navigation', { name: 'Main navigation' }),
-  ).toBeVisible()
-  await page.getByRole('button', { name: 'Accept quote', exact: true }).click()
-  await expect(page.getByText('Outstanding: R 1 000,00')).toBeVisible()
-  await page.getByText('Submit preview EFT proof', { exact: true }).click()
-  await page
-    .getByLabel('EFT proof')
-    .setInputFiles('public/images/chocolate.jpg')
-  await page.getByRole('button', { name: 'Submit proof', exact: true }).click()
-  await page.getByLabel('Preview role').selectOption('Admin')
-  await expect(page.getByText('Admin view', { exact: true })).toBeVisible()
-  await page.getByRole('button', { name: 'Orders', exact: true }).click()
-  await page.getByRole('button', { name: 'View order' }).first().click()
-  await page.getByRole('button', { name: 'Verify preview payment' }).click()
-  await expect(
-    page.getByText('Deposit paid', { exact: true }).last(),
-  ).toBeVisible()
-  await page.getByRole('button', { name: 'Confirmed', exact: true }).click()
-  await page.getByRole('button', { name: 'In progress', exact: true }).click()
-  await page
-    .getByRole('button', { name: 'Ready for collection', exact: true })
-    .click()
-  await expect(
-    page.getByRole('button', { name: 'Collected', exact: true }),
-  ).toBeDisabled()
-  await page.keyboard.press('Escape')
-  await expect(page.getByRole('dialog')).toHaveCount(0)
-  await page.getByLabel('Preview role').selectOption('Customer')
-  await expect(
-    page.getByRole('navigation', { name: 'Main navigation' }),
-  ).toBeVisible()
-  await page.getByText('Submit preview EFT proof', { exact: true }).click()
-  await page
-    .getByLabel('EFT proof')
-    .setInputFiles('public/images/chocolate.jpg')
-  await page.getByRole('button', { name: 'Submit proof', exact: true }).click()
-  await page.getByLabel('Preview role').selectOption('Admin')
-  await expect(page.getByText('Admin view', { exact: true })).toBeVisible()
-  await page.getByRole('button', { name: 'Orders', exact: true }).click()
-  await page.getByRole('button', { name: 'View order' }).first().click()
-  await page.getByRole('button', { name: 'Verify preview payment' }).click()
-  await expect(
-    page.getByRole('button', { name: 'Verify preview payment' }),
-  ).toHaveCount(0)
-  await page.getByRole('button', { name: 'Collected', exact: true }).click()
-  await page.keyboard.press('Escape')
-  await page.getByLabel('Preview role').selectOption('Customer')
-  await expect(
-    page.getByRole('navigation', { name: 'Main navigation' }),
-  ).toBeVisible()
-  await expect(
-    page.getByText('Collected', { exact: true }).first(),
-  ).toBeVisible()
-  await expect(page.getByText('Outstanding: R 0,00').first()).toBeVisible()
-})
-test('staff permissions and admin product visibility', async ({ page }) => {
-  await page.goto('/')
-  await page.getByLabel('Preview role').selectOption('Staff')
-  await expect(page.getByText('Staff view', { exact: true })).toBeVisible()
-  await expect(
-    page.getByRole('button', { name: 'Products', exact: true }),
-  ).toHaveCount(0)
-  await expect(
-    page.getByRole('button', { name: 'Customers', exact: true }),
-  ).toHaveCount(0)
-  await page.getByLabel('Preview role').selectOption('Admin')
-  await expect(page.getByText('Admin view', { exact: true })).toBeVisible()
-  await page.getByRole('button', { name: 'Products', exact: true }).click()
-  await page.getByRole('button', { name: 'Hide', exact: true }).first().click()
-  await page.getByLabel('Preview role').selectOption('Customer')
-  await expect(
-    page.getByRole('navigation', { name: 'Main navigation' }),
-  ).toBeVisible()
-  await page
-    .getByRole('button', { name: 'Our cakes', exact: true })
-    .first()
-    .click()
-  await expect(
-    page.getByRole('button', { name: 'View Chocolate Luxe', exact: true }),
-  ).toHaveCount(0)
-})
-test('desktop and mobile workspace rendering', async ({ page }) => {
-  await page.goto('/')
-  await page.screenshot({
-    path: 'test-results/home-desktop.png',
-    fullPage: true,
-  })
-  await page.getByLabel('Preview role').selectOption('Admin')
-  await expect(page.getByText('Admin view', { exact: true })).toBeVisible()
-  await expect(
-    page.getByRole('heading', { name: 'Hello, bakery team.' }),
-  ).toBeVisible()
-  await page.screenshot({
-    path: 'test-results/admin-desktop.png',
-    fullPage: true,
-  })
   await page.setViewportSize({ width: 390, height: 844 })
+  let deleted = false,
+    fail = true,
+    calls = 0
+  await page.route('**/api/Auth/me', (route) =>
+    route.fulfill({
+      json: {
+        userId: 1,
+        fullName: 'Bakery Admin',
+        email: 'admin@example.com',
+        phoneNumber: '0821234567',
+        role: 'Admin',
+      },
+    }),
+  )
+  await page.route('**/api/website', (route) =>
+    route.fulfill({
+      json: {
+        ...publicData(),
+        products: publicData().products.filter((p) => !deleted || p.id !== 1),
+      },
+    }),
+  )
+  await page.route('**/api/website/products/1', (route) => {
+    calls++
+    if (fail)
+      return route.fulfill({
+        status: 503,
+        json: { message: 'Unable to delete right now.' },
+      })
+    deleted = true
+    return route.fulfill({ status: 204 })
+  })
+  await page.goto('/')
+  await page
+    .getByRole('button', { name: 'Open workspace menu', exact: true })
+    .click()
+  await page.getByRole('button', { name: 'Products', exact: true }).click()
+  const row = page.getByRole('article').filter({ hasText: 'Chocolate Luxe' })
+  await row.getByRole('button', { name: 'Delete product', exact: true }).click()
+  const dialog = page.getByRole('dialog')
+  await expect(
+    dialog.getByRole('heading', { name: 'Delete product?' }),
+  ).toBeVisible()
+  await dialog.getByRole('button', { name: 'Cancel', exact: true }).click()
+  expect(calls).toBe(0)
+  await expect(row).toBeVisible()
+  await row.getByRole('button', { name: 'Delete product', exact: true }).click()
+  await dialog
+    .getByRole('button', { name: 'Delete product', exact: true })
+    .click()
+  await expect(dialog.getByRole('alert')).toHaveText(
+    'Unable to delete right now.',
+  )
+  await expect(row).toHaveCount(1)
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= innerWidth,
     ),
   ).toBe(true)
-  await page.screenshot({
-    path: 'test-results/admin-mobile.png',
-    fullPage: true,
-  })
-  await page.getByLabel('Preview role').selectOption('Customer')
+  fail = false
+  await dialog
+    .getByRole('button', { name: 'Delete product', exact: true })
+    .click()
+  await expect(dialog).toHaveCount(0)
+  await expect(row).toHaveCount(0)
+  expect(calls).toBe(2)
+})
+test('Staff identity comes from the API and does not expose Admin product controls', async ({
+  page,
+}) => {
+  await page.route('**/api/Auth/me', (route) =>
+    route.fulfill({
+      json: {
+        userId: 3,
+        fullName: 'Bakery Staff',
+        email: 'staff@example.com',
+        phoneNumber: '0821234567',
+        role: 'Staff',
+      },
+    }),
+  )
+  await page.route('**/api/website', (route) =>
+    route.fulfill({ json: publicData() }),
+  )
+  await page.goto('/')
   await expect(
-    page.getByRole('navigation', { name: 'Main navigation' }),
+    page.getByRole('heading', { name: 'Hello, bakery team.' }),
   ).toBeVisible()
-  await page.screenshot({
-    path: 'test-results/home-mobile.png',
-    fullPage: true,
-  })
+  await expect(
+    page.getByRole('button', { name: 'Products', exact: true }),
+  ).toHaveCount(0)
+  await expect(page.getByLabel('Preview role')).toHaveCount(0)
+  await page.getByRole('button', { name: 'Cake requests', exact: true }).click()
+  await expect(
+    page.getByRole('heading', { name: 'No cake requests yet' }),
+  ).toBeVisible()
 })

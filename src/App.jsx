@@ -1,7 +1,8 @@
-﻿import { assetUrl } from './assets'
-import { useEffect, useState } from 'react'
+import { assetUrl } from './assets'
+import { useEffect, useRef, useState } from 'react'
 import { money } from './data'
-import { usePreviewStore } from './store'
+import { useWebsite } from './useWebsite'
+import { Action } from './Forms'
 import {
   Account,
   Cart,
@@ -18,11 +19,11 @@ import './App.css'
 const year = new Date().getFullYear()
 
 export default function App() {
-  const [store, setStore] = usePreviewStore()
+  const { store, user, loading, error, refresh, logout } = useWebsite()
+  const [workspace, setWorkspace] = useState(true)
+  const role = user?.role || 'Customer'
   const products = store.products.filter((p) => p.active)
-  const [user, setUser] = useState(null),
-    [pending, setPending] = useState(''),
-    [role, setRole] = useState('Customer')
+  const [pending, setPending] = useState('')
   const [page, setPage] = useState(location.hash.slice(1) || 'home'),
     [category, setCategory] = useState('All'),
     [search, setSearch] = useState(''),
@@ -53,7 +54,9 @@ export default function App() {
     setCart((items) =>
       items.some((i) => i.id === p.id)
         ? items.map((i) =>
-            i.id === p.id ? { ...i, quantity: i.quantity + 1 } : i,
+            i.id === p.id
+              ? { ...i, quantity: Math.min(20, i.quantity + 1) }
+              : i,
           )
         : [...items, { ...p, quantity: 1 }],
     )
@@ -98,14 +101,14 @@ export default function App() {
       </div>
     </article>
   )
-  if (role !== 'Customer')
+  if (user && role !== 'Customer' && workspace)
     return (
       <>
         <Portal
           store={store}
-          setStore={setStore}
           role={role}
-          setRole={setRole}
+          onWebsite={() => setWorkspace(false)}
+          onLogout={logout}
           notify={setNotice}
         />
         {notice && (
@@ -123,67 +126,29 @@ export default function App() {
     )
   return (
     <>
-      <div className="preview-bar">
-        <span>
-          <b>Website preview</b> · Sample content. No real accounts or payments.
-          Use sample details only.
-        </span>
-        <label>
-          View as{' '}
-          <select
-            aria-label="Preview role"
-            value={role}
-            onChange={(e) => setRole(e.target.value)}
-          >
-            <option>Customer</option>
-            <option>Admin</option>
-            <option>Staff</option>
-          </select>
-        </label>
-      </div>
+      {user && role !== 'Customer' && (
+        <div className="account-toolbar">
+          <button onClick={() => setWorkspace(true)}>
+            Open bakery workspace
+          </button>
+          <Action onClick={logout}>Sign out</Action>
+        </div>
+      )}
+      {loading && (
+        <p className="service-banner" role="status">
+          Loading the bakery…
+        </p>
+      )}
+      {error && (
+        <div className="service-banner error" role="alert">
+          {error} <Action onClick={refresh}>Refresh records</Action>
+        </div>
+      )}
       <div className="announcement">
         Made with love. Collected with a smile.{' '}
         <span>Collection only · Lenasia South</span>
       </div>
-      <header className="site-header">
-        <div className="header-inner">
-          <Brand onClick={() => go('home')} />
-          <nav aria-label="Main navigation">
-            {[
-              ['home', 'Home'],
-              ['shop', 'Our cakes'],
-              ['gallery', 'Gallery'],
-              ['builder', 'Custom cake'],
-              ['tracking', 'My orders'],
-              ['contact', 'Contact'],
-            ].map(([key, label]) => (
-              <button
-                key={key}
-                className={page === key ? 'active' : ''}
-                onClick={() => go(key)}
-              >
-                {label}
-              </button>
-            ))}
-          </nav>
-          <div className="header-actions">
-            <button aria-label="Search products" onClick={() => go('shop')}>
-              <Icon name="search" />
-            </button>
-            <button
-              aria-label={`Cart, ${count} items`}
-              onClick={() => go('cart')}
-              className="cart-icon"
-            >
-              <Icon name="bag" />
-              {count > 0 && <span>{count}</span>}
-            </button>
-            <button aria-label="My account" onClick={() => go('account')}>
-              <Icon name="user" />
-            </button>
-          </div>
-        </div>
-      </header>
+      <SiteHeader page={page} go={go} count={count} />
       {notice && (
         <div className="notice" role="status">
           {notice}
@@ -403,13 +368,7 @@ export default function App() {
             />
           )}
           {page === 'account' && (
-            <Account
-              user={user}
-              setUser={setUser}
-              go={go}
-              pending={pending}
-              notify={setNotice}
-            />
+            <Account user={user} go={go} pending={pending} notify={setNotice} />
           )}
           {['builder', 'checkout', 'tracking'].includes(page) && !user && (
             <Empty
@@ -426,13 +385,7 @@ export default function App() {
                 Keep it simple. Share your idea and we’ll prepare a personal
                 quotation.
               </p>
-              <Builder
-                store={store}
-                setStore={setStore}
-                user={user}
-                go={go}
-                notify={setNotice}
-              />
+              <Builder store={store} user={user} go={go} notify={setNotice} />
             </>
           )}
           {page === 'checkout' && user && (
@@ -442,7 +395,6 @@ export default function App() {
                 cart={cart}
                 setCart={setCart}
                 store={store}
-                setStore={setStore}
                 user={user}
                 go={go}
                 notify={setNotice}
@@ -450,31 +402,20 @@ export default function App() {
             </>
           )}
           {page === 'tracking' && user && (
-            <Orders
-              store={store}
-              setStore={setStore}
-              user={user}
-              notify={setNotice}
-            />
+            <Orders store={store} user={user} notify={setNotice} />
           )}
           {page === 'gallery' && <Gallery />}
           {page === 'about' && <About go={go} />}
           {page === 'reviews' && (
             <Reviews
               store={store}
-              setStore={setStore}
               user={user}
               requireAccount={requireAccount}
               notify={setNotice}
             />
           )}
           {page === 'contact' && (
-            <Contact
-              store={store}
-              setStore={setStore}
-              user={user}
-              notify={setNotice}
-            />
+            <Contact store={store} user={user} notify={setNotice} />
           )}
           {![
             'cart',
@@ -585,6 +526,165 @@ export function Brand({ onClick }) {
     </button>
   )
 }
+function SiteHeader({ page, go, count }) {
+  const [open, setOpen] = useState(false)
+  const header = useRef(null)
+  const toggle = useRef(null)
+  const links = [
+    ['home', 'Home'],
+    ['shop', 'Our cakes'],
+    ['gallery', 'Gallery'],
+    ['builder', 'Custom cake'],
+    ['tracking', 'My orders'],
+    ['contact', 'Contact'],
+  ]
+  useEffect(() => {
+    const desktop = window.matchMedia('(min-width: 901px)')
+    const resize = () => {
+      if (desktop.matches) {
+        if (
+          header.current
+            ?.querySelector('.mobile-navigation')
+            ?.contains(document.activeElement)
+        )
+          header.current
+            .querySelector(
+              '.desktop-navigation button.active, .desktop-navigation button',
+            )
+            ?.focus()
+        setOpen(false)
+      }
+    }
+    desktop.addEventListener('change', resize)
+    return () => desktop.removeEventListener('change', resize)
+  }, [])
+  useEffect(() => {
+    if (!open) return
+    const escape = (event) => {
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        setOpen(false)
+        toggle.current?.focus()
+      }
+    }
+    const outside = (event) => {
+      if (!header.current?.contains(event.target)) setOpen(false)
+    }
+    const navigated = () => {
+      setOpen(false)
+      if (
+        header.current
+          ?.querySelector('.mobile-navigation')
+          ?.contains(document.activeElement)
+      )
+        toggle.current?.focus()
+    }
+    document.addEventListener('keydown', escape)
+    document.addEventListener('pointerdown', outside)
+    window.addEventListener('hashchange', navigated)
+    return () => {
+      document.removeEventListener('keydown', escape)
+      document.removeEventListener('pointerdown', outside)
+      window.removeEventListener('hashchange', navigated)
+    }
+  }, [open])
+  const navigate = (key) => {
+    setOpen(false)
+    go(key)
+  }
+  return (
+    <header
+      className="site-header"
+      ref={header}
+      onBlur={(event) => {
+        if (
+          event.relatedTarget &&
+          !event.currentTarget.contains(event.relatedTarget)
+        )
+          setOpen(false)
+      }}
+    >
+      <div className="header-inner">
+        <Brand onClick={() => navigate('home')} />
+        <nav className="desktop-navigation" aria-label="Main navigation">
+          {links.map(([key, label]) => (
+            <button
+              key={key}
+              className={page === key ? 'active' : ''}
+              aria-current={page === key ? 'page' : undefined}
+              onClick={() => navigate(key)}
+            >
+              {label}
+            </button>
+          ))}
+        </nav>
+        <div className="header-actions">
+          <button
+            className="header-search"
+            aria-label="Search products"
+            onClick={() => navigate('shop')}
+          >
+            <Icon name="search" />
+          </button>
+          <button
+            aria-label={`Cart, ${count} items`}
+            className="cart-icon"
+            onClick={() => navigate('cart')}
+          >
+            <Icon name="bag" />
+            {count > 0 && <span>{count}</span>}
+          </button>
+          <button aria-label="My account" onClick={() => navigate('account')}>
+            <Icon name="user" />
+          </button>
+          <button
+            className="menu-toggle"
+            type="button"
+            ref={toggle}
+            aria-label={open ? 'Close menu' : 'Open menu'}
+            aria-expanded={open}
+            aria-controls="mobile-navigation"
+            onClick={() => setOpen((value) => !value)}
+          >
+            <Icon name={open ? 'close' : 'menu'} />
+          </button>
+        </div>
+      </div>
+      <nav
+        className="mobile-navigation"
+        id="mobile-navigation"
+        aria-label="Main navigation"
+        hidden={!open}
+      >
+        <ul>
+          {links.map(([key, label]) => (
+            <li key={key}>
+              <a
+                href={`#${key}`}
+                aria-current={page === key ? 'page' : undefined}
+                onClick={(event) => {
+                  if (
+                    event.ctrlKey ||
+                    event.metaKey ||
+                    event.shiftKey ||
+                    event.altKey
+                  )
+                    return
+                  event.preventDefault()
+                  navigate(key)
+                  toggle.current?.focus()
+                }}
+              >
+                {label}
+                <span aria-hidden="true">›</span>
+              </a>
+            </li>
+          ))}
+        </ul>
+      </nav>
+    </header>
+  )
+}
 export function Icon({ name }) {
   const paths = {
     heart:
@@ -592,6 +692,8 @@ export function Icon({ name }) {
     bag: 'M5 7h14l1 14H4L5 7Zm3 0V5a4 4 0 0 1 8 0v2',
     user: 'M20 21a8 8 0 0 0-16 0M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0Z',
     search: 'm21 21-5-5M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Z',
+    menu: 'M4 6h16M4 12h16M4 18h16',
+    close: 'm6 6 12 12M6 18 18 6',
     cake: 'M3 12h18v9H3v-9Zm0 4c3 4 3-4 6 0s3-4 6 0 3-4 6 0M6 12V8h12v4M9 8V5m6 3V5',
     sparkle: 'm12 2 3 7 7 3-7 3-3 7-3-7-7-3 7-3 3-7Z',
     check: 'm5 12 4 4L19 6',

@@ -12,7 +12,8 @@
     "test:e2e": "playwright test",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test:pages": "playwright test --config playwright.pages.config.js"
+    "test:pages": "playwright test --config playwright.pages.config.js",
+    "test:integration": "playwright test --config playwright.integration.config.js"
   },
   "dependencies": {
     "react": "^19.2.8",

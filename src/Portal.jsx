@@ -1,145 +1,164 @@
-﻿import { assetUrl } from './assets'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { assetUrl } from './assets'
+import { mediaUrl } from './api'
+import { useWebsite } from './useWebsite'
+import { AsyncForm, Action } from './Forms'
+import { Badge, Field, Empty } from './Customer'
+import { ReviewModeration } from './Content'
 import { money } from './data'
-import { Badge, Field, Error, Empty } from './Customer'
 import {
   canTransition,
-  collectionError,
   paymentState,
   outstandingAmount,
-  quoteExpired,
   today,
+  validateImage,
 } from './rules'
-import { createId } from './store'
 import Dialog from './Dialog'
-import { ReviewModeration } from './Content'
-const stamp = () => new Date().toISOString()
-const expiry = () => new Date(Date.now() + 3 * 86400000).toISOString()
-const quoteDate = (value) =>
-  new Date(value).toLocaleString('en-ZA', { timeZone: 'Africa/Johannesburg' })
 
-export default function Portal({ store, setStore, role, setRole, notify }) {
+export default function Portal({ role, onWebsite, onLogout, notify }) {
+  const { store, user, act, error, refresh, createStaff, loading } =
+    useWebsite()
   const [tab, setTab] = useState('Overview'),
     [query, setQuery] = useState(''),
     [filter, setFilter] = useState('All'),
-    [editing, setEditing] = useState(null),
-    [error, setError] = useState('')
+    [editing, setEditing] = useState(null)
+  const [menuOpen, setMenuOpen] = useState(false)
+  const sidebar = useRef(null)
+  const menuToggle = useRef(null)
+  useEffect(() => {
+    const desktop = window.matchMedia('(min-width: 901px)')
+    const resize = () => {
+      setMenuOpen(false)
+      if (desktop.matches && document.activeElement === menuToggle.current)
+        sidebar.current?.querySelector('nav button.active')?.focus()
+      if (
+        !desktop.matches &&
+        sidebar.current
+          ?.querySelector('.portal-sidebar-content')
+          ?.contains(document.activeElement)
+      )
+        menuToggle.current?.focus()
+    }
+    desktop.addEventListener('change', resize)
+    return () => desktop.removeEventListener('change', resize)
+  }, [])
+  useEffect(() => {
+    if (!menuOpen) return
+    const escape = (event) => {
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        setMenuOpen(false)
+        menuToggle.current?.focus()
+      }
+    }
+    const outside = (event) => {
+      if (!sidebar.current?.contains(event.target)) setMenuOpen(false)
+    }
+    document.addEventListener('keydown', escape)
+    document.addEventListener('pointerdown', outside)
+    return () => {
+      document.removeEventListener('keydown', escape)
+      document.removeEventListener('pointerdown', outside)
+    }
+  }, [menuOpen])
   const admin = role === 'Admin'
-  const tabs = admin
-    ? [
-        'Overview',
-        'Orders',
-        'Cake requests',
-        'Products',
-        'Collections',
-        'Enquiries',
-        'Feedback',
-        'Customers',
-      ]
-    : [
-        'Overview',
-        'Orders',
-        'Cake requests',
-        'Collections',
-        'Enquiries',
-        'Feedback',
-      ]
+  const tabs = [
+    'Overview',
+    'Orders',
+    'Cake requests',
+    ...(admin ? ['Products'] : []),
+    'Collections',
+    'Enquiries',
+    'Feedback',
+    ...(admin ? ['Customers', 'Staff accounts'] : []),
+  ]
   const orders = store.orders.filter(
     (o) =>
       (filter === 'All' || o.status === filter) &&
-      `${o.id} ${o.name}`.toLowerCase().includes(query.toLowerCase()),
+      `${o.reference} ${o.name}`.toLowerCase().includes(query.toLowerCase()),
   )
-  function changeOrder(order, next) {
-    if (!canTransition(order, next)) {
-      notify(
-        'This change requires the previous stage, approved collection and verified payment.',
-      )
-      return
-    }
-    setStore((s) => ({
-      ...s,
-      orders: s.orders.map((o) =>
-        o.id === order.id
-          ? {
-              ...o,
-              status: next,
-              history: [...o.history, { status: next, at: stamp() }],
-            }
-          : o,
-      ),
-    }))
-    notify(`Preview order updated: ${next}.`)
-  }
-  function verify(order, payment) {
-    if (!admin || payment.status !== 'Awaiting verification') return
-    setStore((s) => ({
-      ...s,
-      orders: s.orders.map((o) => {
-        if (o.id !== order.id) return o
-        const current = o.payments.find((p) => p.id === payment.id)
-        if (current?.status !== 'Awaiting verification') return o
-        return {
-          ...o,
-          paid: Math.min(
-            o.total,
-            Math.round((o.paid + current.amount) * 100) / 100,
-          ),
-          payments: o.payments.map((p) =>
-            p.id === payment.id ? { ...p, status: 'Verified' } : p,
-          ),
-          history: [
-            ...o.history,
-            { status: 'EFT payment verified', at: stamp() },
-          ],
-        }
-      }),
-    }))
-    notify('Preview EFT marked verified. No real bank verification occurred.')
-  }
-  const previewBar = (
-    <div className="preview-bar">
-      <span>
-        <b>Website preview</b> · Local sample data. No real accounts or
-        payments.
-      </span>
-      <label>
-        View as{' '}
-        <select
-          aria-label="Preview role"
-          value={role}
-          onChange={(e) => {
-            setRole(e.target.value)
-            setTab('Overview')
-          }}
-        >
-          <option>Customer</option>
-          <option>Admin</option>
-          <option>Staff</option>
-        </select>
-      </label>
-    </div>
-  )
+  const order =
+    editing?.kind === 'order'
+      ? store.orders.find((o) => o.id === editing.id)
+      : null
+  const request =
+    editing?.kind === 'quote'
+      ? store.requests.find((r) => r.id === editing.id)
+      : null
+  if (loading)
+    return (
+      <main className="section">
+        <p role="status">Loading bakery records…</p>
+      </main>
+    )
   return (
-    <>
-      {previewBar}
-      <div className="portal">
-        <aside className="portal-sidebar">
+    <div className="portal">
+      <aside
+        className={`portal-sidebar${menuOpen ? ' navigation-open' : ''}`}
+        ref={sidebar}
+        onBlur={(event) => {
+          if (
+            event.relatedTarget &&
+            !event.currentTarget.contains(event.relatedTarget)
+          )
+            setMenuOpen(false)
+        }}
+      >
+        <div className="portal-sidebar-top">
           <div className="portal-brand">
             <span>K Sweet</span>
             <small>KREATIONS CO</small>
           </div>
+          <button
+            className="portal-menu-toggle"
+            type="button"
+            ref={menuToggle}
+            aria-label={
+              menuOpen ? 'Close workspace menu' : 'Open workspace menu'
+            }
+            aria-expanded={menuOpen}
+            aria-controls="workspace-navigation"
+            onClick={() => setMenuOpen((value) => !value)}
+          >
+            <svg
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              aria-hidden="true"
+              focusable="false"
+            >
+              <path
+                d={
+                  menuOpen ? 'm6 6 12 12M6 18 18 6' : 'M4 6h16M4 12h16M4 18h16'
+                }
+              />
+            </svg>
+          </button>
+        </div>
+        <div className="portal-sidebar-content" id="workspace-navigation">
           <p className="sidebar-caption">BAKERY WORKSPACE</p>
           <nav aria-label="Bakery navigation">
             {tabs.map((t) => (
               <button
                 className={tab === t ? 'active' : ''}
+                aria-current={tab === t ? 'page' : undefined}
+                key={t}
                 onClick={() => {
+                  if (menuOpen) {
+                    setMenuOpen(false)
+                    menuToggle.current?.focus()
+                  }
                   setTab(t)
                   setQuery('')
                   setFilter('All')
-                  setError('')
+                  refresh().catch(() => {
+                    /* The shared banner offers a retry. */
+                  })
                 }}
-                key={t}
               >
                 {t}
                 <span aria-hidden="true">›</span>
@@ -147,219 +166,345 @@ export default function Portal({ store, setStore, role, setRole, notify }) {
             ))}
           </nav>
           <div className="sidebar-bottom">
-            <span className="staff-avatar">{role[0]}</span>
             <div>
-              <strong>{role} preview</strong>
-              <small>Bakery team</small>
+              <strong>{user.name}</strong>
+              <small>{role}</small>
             </div>
-            <button
-              onClick={() => setRole('Customer')}
-              aria-label="Return to customer website"
-            >
-              Website
+            <Action onClick={onLogout}>Sign out</Action>
+          </div>
+        </div>
+      </aside>
+      <div className="portal-content">
+        <header className="portal-header">
+          <span>K Sweet Kreations Co / {tab}</span>
+          <Badge text={role} />
+        </header>
+        <main className="portal-main">
+          <div className="page-heading">
+            <div>
+              <p className="eyebrow">BAKERY WORKSPACE</p>
+              <h1>{tab === 'Overview' ? 'Hello, bakery team.' : tab}</h1>
+            </div>
+            <button className="button outline" onClick={onWebsite}>
+              View customer website
             </button>
           </div>
-        </aside>
-        <div className="portal-content">
-          <header className="portal-header">
-            <span>
-              K Sweet Kreations Co <span className="muted">/ {tab}</span>
-            </span>
-            <Badge text={`${role} view`} />
-          </header>
-          <main className="portal-main">
-            <div className="page-heading">
-              <div>
-                <p className="eyebrow">
-                  A LITTLE ORGANISATION. A LOT OF SWEETNESS.
-                </p>
-                <h1>{tab === 'Overview' ? 'Hello, bakery team.' : tab}</h1>
-                <p className="muted">
-                  {tab === 'Overview'
-                    ? 'Here’s what’s happening in your kitchen.'
-                    : 'Manage the details behind every celebration.'}
-                </p>
-              </div>
-              <button
-                className="button outline"
-                onClick={() => setRole('Customer')}
-              >
-                View customer website
-              </button>
+          {error && (
+            <div className="service-banner error" role="alert">
+              {error}
+              <Action onClick={refresh}>Refresh records</Action>
             </div>
-            {tab === 'Overview' && (
-              <>
-                <div className="stats-grid">
-                  {[
-                    [
-                      'Active orders',
-                      store.orders.filter(
-                        (o) => !['Cancelled', 'Collected'].includes(o.status),
-                      ).length,
-                    ],
-                    [
-                      'Requests to review',
-                      store.requests.filter((q) =>
-                        ['Submitted', 'Under review'].includes(q.status),
-                      ).length,
-                    ],
-                    [
-                      'EFT proofs pending',
-                      store.orders
-                        .flatMap((o) => o.payments)
-                        .filter((p) => p.status === 'Awaiting verification')
-                        .length,
-                    ],
-                    [
-                      'Payments recorded',
-                      money(store.orders.reduce((n, o) => n + o.paid, 0)),
-                    ],
-                  ].map(([label, value]) => (
-                    <article className="panel stat" key={label}>
-                      <span>{label}</span>
-                      <strong>{value}</strong>
-                      <small>Preview workspace</small>
-                    </article>
-                  ))}
-                </div>
-                <div className="dashboard-grid">
-                  <section className="panel">
-                    <div className="section-title">
-                      <h2>Orders at a glance</h2>
-                      <button
-                        className="text-button"
-                        onClick={() => setTab('Orders')}
-                      >
-                        View all
-                      </button>
-                    </div>
-                    <OrderTable
-                      orders={store.orders.slice(0, 5)}
-                      onSelect={(o) => {
-                        setEditing({ kind: 'order', id: o.id })
-                        setError('')
-                      }}
-                    />
-                  </section>
-                  <section className="panel day-panel">
-                    <p className="eyebrow">THE NEXT SWEET MOMENT</p>
-                    <h2>
-                      Every detail
-                      <br />
-                      makes a difference.
-                    </h2>
-                    <img
-                      src={assetUrl('/images/cupcakes.jpg')}
-                      alt="Cupcake selection"
-                    />
-                    <p className="muted">
-                      Review requests, approve collection times and keep
-                      customers updated.
-                    </p>
-                    <button
-                      className="button dark"
-                      onClick={() => setTab('Cake requests')}
-                    >
-                      Review cake requests
-                    </button>
-                  </section>
-                </div>
-              </>
-            )}
-            {tab === 'Orders' && (
+          )}
+          <Action className="text-button" onClick={refresh}>
+            Refresh records
+          </Action>
+          <p className="muted">
+            Records update automatically every 30 seconds and when you return to
+            this page.
+          </p>
+          {tab === 'Overview' && (
+            <>
+              <div className="stats-grid">
+                {[
+                  [
+                    'Active orders',
+                    store.orders.filter(
+                      (o) => !['Collected', 'Cancelled'].includes(o.status),
+                    ).length,
+                  ],
+                  [
+                    'Requests to review',
+                    store.requests.filter((r) =>
+                      ['Submitted', 'Under review'].includes(r.status),
+                    ).length,
+                  ],
+                  [
+                    'EFT proofs pending',
+                    store.orders
+                      .flatMap((o) => o.payments)
+                      .filter((p) => p.status === 'Awaiting verification')
+                      .length,
+                  ],
+                  [
+                    'Verified payments',
+                    money(store.orders.reduce((total, o) => total + o.paid, 0)),
+                  ],
+                ].map(([label, value]) => (
+                  <article className="stat-card" key={label}>
+                    <p>{label}</p>
+                    <strong>{value}</strong>
+                  </article>
+                ))}
+              </div>
               <section className="panel">
-                <div className="shop-toolbar">
-                  <input
-                    className="portal-search"
-                    placeholder="Search orders or customers"
-                    aria-label="Search orders"
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                  />
-                  <select
-                    aria-label="Filter orders"
-                    value={filter}
-                    onChange={(e) => setFilter(e.target.value)}
-                  >
-                    {[
-                      'All',
-                      'Awaiting confirmation',
-                      'Confirmed',
-                      'In progress',
-                      'Ready for collection',
-                      'Collected',
-                      'Cancelled',
-                    ].map((s) => (
-                      <option key={s}>{s}</option>
-                    ))}
-                  </select>
-                </div>
+                <h2>Current orders</h2>
                 <OrderTable
-                  orders={orders}
-                  onSelect={(o) => {
-                    setEditing({ kind: 'order', id: o.id })
-                    setError('')
-                  }}
+                  orders={orders.slice(0, 10)}
+                  onSelect={(o) => setEditing({ kind: 'order', id: o.id })}
                 />
               </section>
-            )}
-            {tab === 'Cake requests' && (
+            </>
+          )}
+          {tab === 'Orders' && (
+            <section className="panel">
+              <div className="filter-controls">
+                <input
+                  aria-label="Search orders"
+                  placeholder="Order reference or customer"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                />
+                <select
+                  aria-label="Filter order status"
+                  value={filter}
+                  onChange={(e) => setFilter(e.target.value)}
+                >
+                  {[
+                    'All',
+                    'Awaiting confirmation',
+                    'Confirmed',
+                    'In progress',
+                    'Ready for collection',
+                    'Collected',
+                    'Cancelled',
+                  ].map((s) => (
+                    <option key={s}>{s}</option>
+                  ))}
+                </select>
+              </div>
+              <OrderTable
+                orders={orders}
+                onSelect={(o) => setEditing({ kind: 'order', id: o.id })}
+              />
+            </section>
+          )}
+          {tab === 'Cake requests' && (
+            <section className="panel">
+              {!store.requests.length && <Empty title="No cake requests yet" />}
+              {store.requests.map((r) => (
+                <article className="enquiry-row" key={r.id}>
+                  <div className="page-heading">
+                    <h3>
+                      Request {r.id} · {r.name}
+                    </h3>
+                    <Badge text={r.status} />
+                  </div>
+                  <p>
+                    {r.size} · {r.flavour} · {r.date} at {r.time}
+                  </p>
+                  <button
+                    className="button outline"
+                    onClick={() => setEditing({ kind: 'quote', id: r.id })}
+                  >
+                    Review request
+                  </button>
+                </article>
+              ))}
+            </section>
+          )}
+          {tab === 'Products' && admin && (
+            <section className="panel">
+              <button
+                className="button dark"
+                onClick={() =>
+                  setEditing({
+                    kind: 'product',
+                    product: { active: true, category: 'Cakes' },
+                  })
+                }
+              >
+                Add product
+              </button>
+              {!store.products.length && (
+                <Empty title="Add your first bakery product" />
+              )}
+              {store.products.map((p) => (
+                <article className="cart-item" key={p.id}>
+                  <img src={assetUrl(p.image)} alt={p.name} />
+                  <div>
+                    <h3>{p.name}</h3>
+                    <p>
+                      {money(p.price)} · {p.category}
+                    </p>
+                    <Badge text={p.active ? 'Available' : 'Unavailable'} />
+                  </div>
+                  <div className="product-actions">
+                    <button
+                      className="button outline"
+                      onClick={() =>
+                        setEditing({ kind: 'product', product: p })
+                      }
+                    >
+                      Edit product
+                    </button>
+                    <button
+                      className="button danger-outline"
+                      onClick={() =>
+                        setEditing({ kind: 'delete-product', product: p })
+                      }
+                    >
+                      Delete product
+                    </button>
+                  </div>
+                </article>
+              ))}
+            </section>
+          )}
+          {tab === 'Collections' && (
+            <>
               <section className="panel">
-                <h2>Personal cakes. Personal quotes.</h2>
-                <p className="muted">
-                  Review preferences, confirm collection availability and
-                  prepare a manual quotation valid for three days.
-                </p>
-                {!store.requests.length ? (
-                  <Empty
-                    title="No cake requests yet"
-                    text="Customer requests will appear here."
-                  />
+                <h2>Collection diary</h2>
+                <OrderTable
+                  orders={store.orders
+                    .filter(
+                      (o) =>
+                        o.date >= today() &&
+                        !['Collected', 'Cancelled'].includes(o.status),
+                    )
+                    .sort((a, b) =>
+                      `${a.date} ${a.time}`.localeCompare(
+                        `${b.date} ${b.time}`,
+                      ),
+                    )}
+                  onSelect={(o) => setEditing({ kind: 'order', id: o.id })}
+                />
+              </section>
+              <section className="panel">
+                <h2>Blocked dates</h2>
+                {admin && (
+                  <AsyncForm
+                    onSubmit={async (f) => {
+                      await act(`blocked/${f.date}`, undefined, 'PUT')
+                      notify('Collection date blocked.')
+                    }}
+                  >
+                    <Field
+                      label="Block collection date"
+                      name="date"
+                      type="date"
+                      min={today()}
+                      required
+                    />
+                    <button className="button outline">Block date</button>
+                  </AsyncForm>
+                )}
+                {!store.blocked.length && <p>No dates are blocked.</p>}
+                {store.blocked.map((date) => (
+                  <p key={date}>
+                    {date}{' '}
+                    {admin && (
+                      <Action
+                        className="text-button"
+                        onClick={() =>
+                          act(`blocked/${date}`, undefined, 'DELETE')
+                        }
+                      >
+                        Unblock
+                      </Action>
+                    )}
+                  </p>
+                ))}
+              </section>
+            </>
+          )}
+          {tab === 'Enquiries' && (
+            <section className="panel">
+              {!store.enquiries.length && <Empty title="No enquiries yet" />}
+              {store.enquiries.map((e) => (
+                <article className="enquiry-row" key={e.id}>
+                  <div className="page-heading">
+                    <h3>{e.subject}</h3>
+                    <Badge text={e.status} />
+                  </div>
+                  <p>
+                    {e.name} · {e.email}
+                  </p>
+                  <p>{e.message}</p>
+                  <div className="button-row">
+                    {['New', 'In progress', 'Resolved'].map((status) => (
+                      <Action
+                        key={status}
+                        className="button outline"
+                        disabled={e.status === status}
+                        onClick={() =>
+                          act(`enquiries/${e.id}/status`, { status }, 'PATCH')
+                        }
+                      >
+                        {status}
+                      </Action>
+                    ))}
+                  </div>
+                </article>
+              ))}
+            </section>
+          )}
+          {tab === 'Feedback' && <ReviewModeration admin={admin} />}
+          {tab === 'Customers' && admin && (
+            <section className="panel">
+              <h2>Registered customers ({store.customers.length})</h2>
+              {!store.customers.length ? (
+                <Empty title="No customers registered yet" />
+              ) : (
+                <div className="table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Name</th>
+                        <th>Email</th>
+                        <th>Phone</th>
+                        <th>Orders</th>
+                        <th>Cake requests</th>
+                        <th>Account</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {store.customers.map((customer) => (
+                        <tr key={customer.id}>
+                          <td>{customer.name}</td>
+                          <td>{customer.email}</td>
+                          <td>{customer.phone}</td>
+                          <td>{customer.orderCount}</td>
+                          <td>{customer.requestCount}</td>
+                          <td>
+                            <Badge
+                              text={customer.active ? 'Active' : 'Inactive'}
+                            />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </section>
+          )}
+          {tab === 'Staff accounts' && admin && (
+            <>
+              <section className="panel">
+                <h2>Registered Staff ({store.staff.length})</h2>
+                {!store.staff.length ? (
+                  <Empty title="No Staff accounts yet" />
                 ) : (
                   <div className="table-wrap">
                     <table>
                       <thead>
                         <tr>
-                          <th>Request</th>
-                          <th>Customer</th>
-                          <th>Cake</th>
-                          <th>Collection</th>
-                          <th>Status</th>
-                          <th>Action</th>
+                          <th>Name</th>
+                          <th>Email</th>
+                          <th>Phone</th>
+                          <th>Account</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {store.requests.map((q) => (
-                          <tr key={q.id}>
-                            <td>{q.id}</td>
-                            <td>{q.name}</td>
-                            <td>
-                              {q.flavour}
-                              <small>{q.size}</small>
-                            </td>
-                            <td>
-                              {q.date}
-                              <small>{q.time}</small>
-                            </td>
+                        {store.staff.map((member) => (
+                          <tr key={member.id}>
+                            <td>{member.name}</td>
+                            <td>{member.email}</td>
+                            <td>{member.phone}</td>
                             <td>
                               <Badge
-                                text={
-                                  q.status === 'Quoted' && quoteExpired(q)
-                                    ? 'Expired'
-                                    : q.status
-                                }
+                                text={member.active ? 'Active' : 'Inactive'}
                               />
-                            </td>
-                            <td>
-                              <button
-                                className="text-button"
-                                onClick={() => {
-                                  setEditing({ kind: 'quote', id: q.id })
-                                  setError('')
-                                }}
-                              >
-                                Review request
-                              </button>
                             </td>
                           </tr>
                         ))}
@@ -368,283 +513,65 @@ export default function Portal({ store, setStore, role, setRole, notify }) {
                   </div>
                 )}
               </section>
-            )}
-            {tab === 'Products' && admin && (
-              <section className="panel">
-                <div className="section-title">
-                  <h2>Your sweet collection</h2>
-                  <button
-                    className="button dark"
-                    onClick={() => {
-                      setEditing({
-                        kind: 'product',
-                        product: {
-                          name: '',
-                          description: '',
-                          price: 0,
-                          size: '',
-                          servings: '',
-                          category: 'Cakes',
-                          image: '/images/chocolate.jpg',
-                          active: true,
-                        },
-                      })
-                      setError('')
-                    }}
-                  >
-                    + Add product
-                  </button>
-                </div>
-                <div className="table-wrap">
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>Product</th>
-                        <th>Category</th>
-                        <th>Price</th>
-                        <th>Availability</th>
-                        <th>Action</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {store.products.map((p) => (
-                        <tr key={p.id}>
-                          <td>
-                            <div className="table-product">
-                              <img src={assetUrl(p.image)} alt="" />
-                              <strong>{p.name}</strong>
-                            </div>
-                          </td>
-                          <td>{p.category}</td>
-                          <td>{money(p.price)}</td>
-                          <td>
-                            <Badge text={p.active ? 'Available' : 'Hidden'} />
-                          </td>
-                          <td>
-                            <button
-                              className="text-button"
-                              onClick={() => {
-                                setEditing({ kind: 'product', product: p })
-                                setError('')
-                              }}
-                            >
-                              Edit
-                            </button>
-                            <button
-                              className="text-button"
-                              onClick={() =>
-                                setStore((s) => ({
-                                  ...s,
-                                  products: s.products.map((r) =>
-                                    r.id === p.id
-                                      ? { ...r, active: !r.active }
-                                      : r,
-                                  ),
-                                }))
-                              }
-                            >
-                              {p.active ? 'Hide' : 'Restore'}
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                <p className="muted">
-                  Hide products to remove them from sale while preserving order
-                  records.
-                </p>
-              </section>
-            )}
-            {tab === 'Collections' && (
-              <div className="dashboard-grid">
-                <section className="panel">
-                  <h2>Collection diary</h2>
-                  <p className="muted">
-                    Only approved, active collections. All times are South
-                    African local time.
-                  </p>
-                  {store.orders
-                    .filter(
-                      (o) =>
-                        o.slotApproved &&
-                        !['Cancelled', 'Collected'].includes(o.status),
-                    )
-                    .sort((a, b) =>
-                      `${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`),
-                    )
-                    .map((o) => (
-                      <div className="collection-row" key={o.id}>
-                        <div className="date-tile">
-                          {o.date.slice(8)}
-                          <small>{o.date.slice(0, 7)}</small>
-                        </div>
-                        <div>
-                          <strong>{o.name}</strong>
-                          <p>
-                            {o.id} · {o.time}
-                          </p>
-                        </div>
-                        <Badge text={o.status} />
-                      </div>
-                    ))}
-                </section>
-                <section className="panel">
-                  <h2>Unavailable dates</h2>
-                  {admin ? (
-                    <form
-                      className="form"
-                      onSubmit={(e) => {
-                        e.preventDefault()
-                        const date = new FormData(e.currentTarget).get('date')
-                        if (!store.blocked.includes(date)) {
-                          setStore((s) => ({
-                            ...s,
-                            blocked: [...s.blocked, date],
-                          }))
-                          notify(
-                            'Date blocked for new bookings. Existing approved bookings need manual review.',
-                          )
-                        }
-                      }}
-                    >
-                      <Field
-                        label="Block collection date"
-                        name="date"
-                        type="date"
-                        min={today()}
-                        required
-                      />
-                      <button className="button dark">Block date</button>
-                    </form>
-                  ) : (
-                    <p className="muted">Admin manages unavailable dates.</p>
-                  )}
-                  {store.blocked.map((d) => (
-                    <div className="collection-row" key={d}>
-                      <span>{d}</span>
-                      {admin && (
-                        <button
-                          className="text-button"
-                          onClick={() =>
-                            setStore((s) => ({
-                              ...s,
-                              blocked: s.blocked.filter((date) => date !== d),
-                            }))
-                          }
-                        >
-                          Unblock
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                  <div className="soft-note">
-                    Mon–Fri 09:00–17:00 · Saturday 09:00–15:00. Closed Sundays.
-                    Rescheduling is arranged with the customer.
-                  </div>
-                </section>
-              </div>
-            )}
-            {tab === 'Enquiries' && (
-              <section className="panel">
-                <h2>A little customer care</h2>
-                {!store.enquiries.length ? (
-                  <Empty title="No enquiries yet" />
-                ) : (
-                  store.enquiries.map((e) => (
-                    <article className="enquiry-row" key={e.id}>
-                      <div className="page-heading">
-                        <div>
-                          <h3>{e.subject}</h3>
-                          <small>
-                            {e.name} · {e.email}
-                          </small>
-                        </div>
-                        <select
-                          aria-label={`Enquiry status ${e.id}`}
-                          value={e.status}
-                          onChange={(event) =>
-                            setStore((s) => ({
-                              ...s,
-                              enquiries: s.enquiries.map((r) =>
-                                r.id === e.id
-                                  ? { ...r, status: event.target.value }
-                                  : r,
-                              ),
-                            }))
-                          }
-                        >
-                          <option>New</option>
-                          <option>In progress</option>
-                          <option>Resolved</option>
-                        </select>
-                      </div>
-                      <p>{e.message}</p>
-                    </article>
-                  ))
-                )}
-              </section>
-            )}
-            {tab === 'Feedback' && (
-              <ReviewModeration
-                store={store}
-                setStore={setStore}
-                admin={admin}
-              />
-            )}
-            {tab === 'Customers' && admin && (
-              <section className="panel">
-                <h2>Customer directory</h2>
-                <p className="muted">
-                  Preview contacts from submitted orders and requests. Account
-                  administration requires the backend identity service.
-                </p>
-                <div className="table-wrap">
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>Customer</th>
-                        <th>Email</th>
-                        <th>Orders</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {[
-                        ...new Set(
-                          [...store.orders, ...store.requests].map(
-                            (r) => r.owner,
-                          ),
-                        ),
-                      ].map((email) => (
-                        <tr key={email}>
-                          <td>
-                            {
-                              [...store.orders, ...store.requests].find(
-                                (r) => r.owner === email,
-                              ).name
-                            }
-                          </td>
-                          <td>{email}</td>
-                          <td>
-                            {
-                              store.orders.filter((o) => o.owner === email)
-                                .length
-                            }
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </section>
-            )}
-            <div className="portal-footnote">
-              Preview workspace · Real authorisation, audit records and
-              notifications require the backend.
-            </div>
-          </main>
-        </div>
+              <AsyncForm
+                onSubmit={async (f, form) => {
+                  if (f.password !== f.confirmPassword)
+                    throw new Error('Passwords must match.')
+                  await createStaff({
+                    fullName: f.name,
+                    phoneNumber: f.phone,
+                    email: f.email,
+                    password: f.password,
+                    confirmPassword: f.confirmPassword,
+                  })
+                  form.reset()
+                  notify('Staff account created.')
+                }}
+              >
+                <h2>Create Staff account</h2>
+                <Field
+                  label="Full name"
+                  name="name"
+                  required
+                  minLength={2}
+                  maxLength={100}
+                />
+                <Field
+                  label="Email"
+                  name="email"
+                  type="email"
+                  required
+                  maxLength={150}
+                />
+                <Field
+                  label="Phone number"
+                  name="phone"
+                  type="tel"
+                  required
+                  pattern={String.raw`\+?(?=(?:.*[0-9]){7})[0-9 \(\)\-]{7,20}`}
+                  maxLength={20}
+                />
+                <Field
+                  label="Temporary password"
+                  name="password"
+                  type="password"
+                  required
+                  minLength={8}
+                  maxLength={128}
+                />
+                <Field
+                  label="Confirm password"
+                  name="confirmPassword"
+                  type="password"
+                  required
+                  minLength={8}
+                  maxLength={128}
+                />
+                <button className="button dark">Create Staff account</button>
+              </AsyncForm>
+            </>
+          )}
+        </main>
       </div>
       {editing && (
         <Dialog
@@ -653,409 +580,402 @@ export default function Portal({ store, setStore, role, setRole, notify }) {
           onClose={() => setEditing(null)}
         >
           {editing.kind === 'product' && admin && (
-            <form
-              className="form"
-              onSubmit={(e) => {
-                e.preventDefault()
-                const f = new FormData(e.currentTarget),
-                  p = {
-                    ...editing.product,
-                    id: editing.product.id || createId('PROD'),
-                    name: f.get('name'),
-                    description: f.get('description'),
-                    price: Number(f.get('price')),
-                    size: f.get('size'),
-                    servings: f.get('servings'),
-                    category: f.get('category'),
-                    image: f.get('image'),
-                  }
-                if (!Number.isFinite(p.price) || p.price <= 0) {
-                  setError('Enter a positive product price.')
-                  return
-                }
-                setStore((s) => ({
-                  ...s,
-                  products: s.products.some((r) => r.id === p.id)
-                    ? s.products.map((r) => (r.id === p.id ? p : r))
-                    : [...s.products, p],
-                }))
+            <ProductEditor
+              product={editing.product}
+              onSaved={() => {
                 setEditing(null)
-                notify('Preview product saved.')
+                notify('Product saved.')
               }}
-            >
-              <h2 id="edit-title">
-                {editing.product.id ? 'Edit product' : 'Add a sweet treat'}
-              </h2>
-              <Field
-                label="Product name"
-                name="name"
-                defaultValue={editing.product.name}
-                required
-                maxLength={100}
-              />
-              <label className="field">
-                <span>Description</span>
-                <textarea
-                  name="description"
-                  defaultValue={editing.product.description}
-                  required
-                  maxLength={500}
-                />
-              </label>
-              <div className="form-row">
-                <Field
-                  label="Price (R)"
-                  name="price"
-                  type="number"
-                  min="0.01"
-                  step="0.01"
-                  defaultValue={editing.product.price}
-                  required
-                />
-                <label className="field">
-                  <span>Category</span>
-                  <select
-                    name="category"
-                    defaultValue={editing.product.category}
-                  >
-                    <option>Cakes</option>
-                    <option>Cupcakes</option>
-                    <option>Desserts</option>
-                  </select>
-                </label>
-              </div>
-              <div className="form-row">
-                <Field
-                  label="Size"
-                  name="size"
-                  defaultValue={editing.product.size}
-                  required
-                />
-                <Field
-                  label="Servings"
-                  name="servings"
-                  defaultValue={editing.product.servings}
-                  required
-                />
-              </div>
-              <label className="field">
-                <span>Preview photograph</span>
-                <select name="image" defaultValue={editing.product.image}>
-                  {['chocolate', 'berry', 'celebration', 'cupcakes'].map(
-                    (name) => (
-                      <option key={name} value={`/images/${name}.jpg`}>
-                        {name}
-                      </option>
-                    ),
-                  )}
-                </select>
-              </label>
-              <Error text={error} />
-              <button className="button dark">Save product</button>
-            </form>
+            />
           )}
-          {editing.kind === 'quote' &&
-            (() => {
-              const q = store.requests.find((r) => r.id === editing.id)
-              return (
-                <div>
-                  <h2 id="edit-title">Review {q.id}</h2>
-                  <Badge text={q.status} />
-                  <div className="request-detail">
-                    <p>
-                      <strong>{q.name}</strong>
-                      <br />
-                      {q.owner} · {q.phone}
-                    </p>
-                    <p>
-                      {q.size}
-                      <br />
-                      {q.flavour} · {q.filling}
-                    </p>
-                    <p>
-                      Collection: {q.date} at {q.time}
-                    </p>
-                    <p>{q.comments}</p>
-                    {q.image && (
-                      <img src={q.image.url} alt="Customer cake inspiration" />
-                    )}
-                  </div>
-                  {['Submitted', 'Under review', 'Quoted'].includes(
-                    q.status,
-                  ) && (
-                    <form
-                      className="form"
-                      onSubmit={(e) => {
-                        e.preventDefault()
-                        const problem = collectionError(
-                          q.date,
-                          q.time,
-                          true,
-                          store.blocked,
-                        )
-                        if (problem) {
-                          setError(problem)
-                          return
-                        }
-                        const f = new FormData(e.currentTarget)
-                        setStore((s) => ({
-                          ...s,
-                          requests: s.requests.map((r) =>
-                            r.id === q.id
-                              ? {
-                                  ...r,
-                                  status: 'Quoted',
-                                  amount: Number(f.get('amount')),
-                                  notes: f.get('notes'),
-                                  expiresAt: expiry(),
-                                }
-                              : r,
-                          ),
-                        }))
-                        setEditing(null)
-                        notify(
-                          'Manual quote prepared in preview. Valid for three days.',
-                        )
-                      }}
-                    >
-                      <Field
-                        label="Final quoted amount (R)"
-                        name="amount"
-                        type="number"
-                        min="0.01"
-                        step="0.01"
-                        defaultValue={q.amount}
-                        required
-                      />
-                      <label className="field">
-                        <span>Quote notes and confirmed design</span>
-                        <textarea
-                          name="notes"
-                          defaultValue={q.notes}
-                          rows="3"
-                          required
-                        />
-                      </label>
-                      <label className="checkbox">
-                        <input type="checkbox" required /> I have reviewed the
-                        design and approved the requested collection slot.
-                      </label>
-                      <Error text={error} />
-                      <button className="button dark">Save manual quote</button>
-                      <div className="button-row">
-                        <button
-                          type="button"
-                          className="button outline"
-                          onClick={() => {
-                            setStore((s) => ({
-                              ...s,
-                              requests: s.requests.map((r) =>
-                                r.id === q.id
-                                  ? { ...r, status: 'Under review' }
-                                  : r,
-                              ),
-                            }))
-                            notify('Request marked under review.')
-                          }}
-                        >
-                          Mark under review
-                        </button>
-                        <button
-                          type="button"
-                          className="text-button"
-                          onClick={() => {
-                            setStore((s) => ({
-                              ...s,
-                              requests: s.requests.map((r) =>
-                                r.id === q.id
-                                  ? { ...r, status: 'Declined' }
-                                  : r,
-                              ),
-                            }))
-                            setEditing(null)
-                            notify('Request declined in preview.')
-                          }}
-                        >
-                          Decline request
-                        </button>
-                      </div>
-                    </form>
-                  )}
-                  {q.expiresAt && (
-                    <p className="muted">
-                      Quote valid until {quoteDate(q.expiresAt)}
-                    </p>
-                  )}
-                </div>
-              )
-            })()}
-          {editing.kind === 'order' &&
-            (() => {
-              const o = store.orders.find((r) => r.id === editing.id)
-              return (
-                <div>
-                  <h2 id="edit-title">Order {o.id}</h2>
-                  <div className="request-detail">
-                    <Badge text={o.status} />
-                    <p>
-                      {o.name} · {o.owner}
-                      <br />
-                      {o.date} at {o.time}
-                    </p>
-                    {o.items.map((i, index) => (
-                      <p key={index}>
-                        {i.name} × {i.quantity}
-                      </p>
-                    ))}
-                    <p>{o.instructions}</p>
-                    <p>
-                      Total {money(o.total)} · Paid {money(o.paid)} ·
-                      Outstanding {money(outstandingAmount(o))}
-                    </p>
-                    <Badge text={paymentState(o)} />
-                  </div>
-                  <h3>Collection approval</h3>
-                  <button
-                    className="button outline"
-                    disabled={
-                      o.slotApproved ||
-                      ['Cancelled', 'Collected'].includes(o.status)
-                    }
-                    onClick={() => {
-                      if (
-                        collectionError(o.date, o.time, false, store.blocked)
-                      ) {
-                        notify(
-                          'This collection date is unavailable. Arrange a new date before approving.',
-                        )
-                        return
-                      }
-                      setStore((s) => ({
-                        ...s,
-                        orders: s.orders.map((r) =>
-                          r.id === o.id ? { ...r, slotApproved: true } : r,
-                        ),
-                      }))
-                      notify('Preview collection slot approved.')
+          {editing.kind === 'delete-product' && admin && (
+            <>
+              <h2 id="edit-title">Delete product?</h2>
+              <p>
+                Remove <strong>{editing.product.name}</strong> from the shop and
+                product list? Existing orders and their history will be kept.
+              </p>
+              <div className="button-row delete-product-actions">
+                <button
+                  className="button outline"
+                  onClick={() => setEditing(null)}
+                >
+                  Cancel
+                </button>
+                <Action
+                  className="button danger"
+                  onClick={async () => {
+                    await act(
+                      `products/${editing.product.id}`,
+                      undefined,
+                      'DELETE',
+                    )
+                    setEditing(null)
+                    notify('Product deleted.')
+                  }}
+                >
+                  Delete product
+                </Action>
+              </div>
+            </>
+          )}
+          {request && (
+            <>
+              <h2 id="edit-title">Request {request.id}</h2>
+              <Badge text={request.status} />
+              <div className="request-detail">
+                <p>
+                  {request.name} · {request.owner} · {request.phone}
+                </p>
+                <p>
+                  {request.size} · {request.flavour} · {request.filling}
+                </p>
+                <p>
+                  Collection: {request.date} at {request.time}
+                </p>
+                <p>{request.comments}</p>
+                {request.image && (
+                  <img
+                    src={mediaUrl(request.image.url)}
+                    alt="Customer cake inspiration"
+                  />
+                )}
+              </div>
+              {['Submitted', 'Under review', 'Quoted', 'Expired'].includes(
+                request.status,
+              ) && (
+                <>
+                  <AsyncForm
+                    onSubmit={async (f) => {
+                      await act(`requests/${request.id}/quote`, {
+                        amount: Number(f.amount),
+                        notes: f.notes,
+                      })
+                      setEditing(null)
+                      notify('Quotation sent. Valid for three days.')
                     }}
                   >
-                    {o.slotApproved
-                      ? 'Collection time approved'
-                      : 'Approve collection time'}
-                  </button>
-                  <h3 className="spaced-heading">Order progress</h3>
-                  <div className="button-row wrap">
-                    {[
-                      'Confirmed',
-                      'In progress',
-                      'Ready for collection',
-                      'Collected',
-                    ].map((next) => (
-                      <button
-                        className="button outline"
-                        disabled={!canTransition(o, next) || o.status === next}
-                        key={next}
-                        onClick={() => changeOrder(o, next)}
-                      >
-                        {next}
-                      </button>
-                    ))}
+                    <Field
+                      label="Final quoted amount (R)"
+                      name="amount"
+                      type="number"
+                      min="0.01"
+                      max="99999999.99"
+                      step="0.01"
+                      defaultValue={request.amount}
+                      required
+                    />
+                    <label className="field">
+                      <span>Quote notes and confirmed design</span>
+                      <textarea
+                        name="notes"
+                        defaultValue={request.notes}
+                        rows="3"
+                        maxLength={1000}
+                        required
+                      />
+                    </label>
+                    <label className="checkbox">
+                      <input type="checkbox" required /> I have reviewed the
+                      design and approved the requested collection slot.
+                    </label>
+                    <button className="button dark">Send manual quote</button>
+                  </AsyncForm>
+                  <div className="button-row">
+                    <Action
+                      className="button outline"
+                      onClick={() =>
+                        act(
+                          `requests/${request.id}/status`,
+                          { status: 'Under review' },
+                          'PATCH',
+                        )
+                      }
+                    >
+                      Mark under review
+                    </Action>
+                    <Action
+                      className="text-button"
+                      onClick={async () => {
+                        await act(
+                          `requests/${request.id}/status`,
+                          { status: 'Declined' },
+                          'PATCH',
+                        )
+                        setEditing(null)
+                      }}
+                    >
+                      Decline request
+                    </Action>
                   </div>
-                  <p className="muted">
-                    Confirmation needs approved collection and verified payment.
-                    Collection needs full payment.
+                </>
+              )}
+              {request.notes && <p>{request.notes}</p>}
+              {request.expiresAt && (
+                <p>
+                  Valid until{' '}
+                  {new Date(request.expiresAt).toLocaleString('en-ZA', {
+                    timeZone: 'Africa/Johannesburg',
+                  })}
+                </p>
+              )}
+            </>
+          )}
+          {order && (
+            <>
+              <h2 id="edit-title">{order.reference}</h2>
+              <div className="request-detail">
+                <Badge text={order.status} />
+                <p>
+                  {order.name} · {order.owner} · {order.phone}
+                </p>
+                <p>
+                  {order.date} at {order.time}
+                </p>
+                {order.items.map((i, index) => (
+                  <p key={index}>
+                    {i.name} × {i.quantity}
                   </p>
-                  <h3>Payment proofs</h3>
-                  {!o.payments.length && (
-                    <p className="muted">No proof submitted yet.</p>
+                ))}
+                <p>{order.instructions}</p>
+                <p>
+                  Total {money(order.total)} · Paid {money(order.paid)} ·
+                  Outstanding {money(outstandingAmount(order))}
+                </p>
+                <Badge text={paymentState(order)} />
+              </div>
+              <h3>Collection approval</h3>
+              <Action
+                className="button outline"
+                disabled={
+                  order.slotApproved ||
+                  ['Cancelled', 'Collected'].includes(order.status)
+                }
+                onClick={() => act(`orders/${order.id}/approve-slot`)}
+              >
+                {order.slotApproved
+                  ? 'Collection time approved'
+                  : 'Approve collection time'}
+              </Action>
+              <h3 className="spaced-heading">Order progress</h3>
+              <div className="button-row wrap">
+                {[
+                  'Confirmed',
+                  'In progress',
+                  'Ready for collection',
+                  'Collected',
+                ].map((status) => (
+                  <Action
+                    key={status}
+                    className="button outline"
+                    disabled={
+                      order.status === status || !canTransition(order, status)
+                    }
+                    onClick={() =>
+                      act(`orders/${order.id}/status`, { status }, 'PATCH')
+                    }
+                  >
+                    {status}
+                  </Action>
+                ))}
+              </div>
+              <h3 className="spaced-heading">Payment proofs</h3>
+              {!order.payments.length && <p>No proof submitted yet.</p>}
+              {order.payments.map((p) => (
+                <div className="payment-row" key={p.id}>
+                  <div>
+                    <strong>
+                      {money(p.amount)} · {p.reference}
+                    </strong>
+                    <Badge text={p.status} />
+                    {p.proofUrl && (
+                      <a
+                        href={mediaUrl(p.proofUrl)}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        View payment proof
+                      </a>
+                    )}
+                  </div>
+                  {admin && p.status === 'Awaiting verification' && (
+                    <>
+                      <Action
+                        className="button dark"
+                        onClick={() =>
+                          act(
+                            `payments/${p.id}/verify`,
+                            { status: 'Verified' },
+                            'PATCH',
+                          )
+                        }
+                      >
+                        Verify payment
+                      </Action>
+                      <Action
+                        className="text-button"
+                        onClick={() =>
+                          act(
+                            `payments/${p.id}/verify`,
+                            { status: 'Rejected' },
+                            'PATCH',
+                          )
+                        }
+                      >
+                        Reject proof
+                      </Action>
+                    </>
                   )}
-                  {o.payments.map((p) => (
-                    <div className="payment-row" key={p.id}>
-                      <div>
-                        <strong>
-                          {money(p.amount)} · {p.method}
-                        </strong>
-                        <Badge text={p.status} />
-                        {p.proof && (
-                          <a
-                            href={p.proof.url}
-                            target="_blank"
-                            rel="noreferrer"
-                          >
-                            View sample proof
-                          </a>
-                        )}
-                      </div>
-                      {admin && p.status === 'Awaiting verification' && (
-                        <>
-                          <button
-                            className="button dark"
-                            onClick={() => verify(o, p)}
-                          >
-                            Verify preview payment
-                          </button>
-                          <button
-                            className="text-button"
-                            onClick={() =>
-                              setStore((s) => ({
-                                ...s,
-                                orders: s.orders.map((r) =>
-                                  r.id === o.id
-                                    ? {
-                                        ...r,
-                                        payments: r.payments.map((pay) =>
-                                          pay.id === p.id
-                                            ? { ...pay, status: 'Rejected' }
-                                            : pay,
-                                        ),
-                                      }
-                                    : r,
-                                ),
-                              }))
-                            }
-                          >
-                            Reject proof
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  ))}
-                  {!admin && (
-                    <p className="muted">
-                      Admin verifies payments in this preview.
-                    </p>
-                  )}
-                  {o.cancelRequested && (
-                    <div className="soft-note">
-                      Customer requested cancellation.{' '}
-                      {admin && (
-                        <button
-                          className="text-button"
-                          onClick={() => changeOrder(o, 'Cancelled')}
-                        >
-                          Approve cancellation
-                        </button>
-                      )}{' '}
-                      Paid-order refunds are handled manually; cancellation does
-                      not refund money.
-                    </div>
-                  )}
-                  <h3 className="spaced-heading">Status history</h3>
-                  {o.history.map((h, i) => (
-                    <p className="muted" key={i}>
-                      {h.status} · {quoteDate(h.at)}
-                    </p>
-                  ))}
                 </div>
-              )
-            })()}
+              ))}
+              {!admin && <p>Admin verifies payments.</p>}
+              {order.cancelRequested && (
+                <div className="soft-note">
+                  Cancellation requested. Refunds are handled manually.
+                  {admin &&
+                    !['Cancelled', 'Collected'].includes(order.status) && (
+                      <Action
+                        className="text-button"
+                        onClick={() =>
+                          act(
+                            `orders/${order.id}/status`,
+                            { status: 'Cancelled' },
+                            'PATCH',
+                          )
+                        }
+                      >
+                        Approve cancellation
+                      </Action>
+                    )}
+                </div>
+              )}
+              <h3>Status history</h3>
+              {order.history.map((h, i) => (
+                <p key={i}>
+                  {h.status} ·{' '}
+                  {new Date(h.at).toLocaleString('en-ZA', {
+                    timeZone: 'Africa/Johannesburg',
+                  })}
+                </p>
+              ))}
+            </>
+          )}
         </Dialog>
       )}
+    </div>
+  )
+}
+
+function ProductEditor({ product, onSaved }) {
+  const { act } = useWebsite()
+  return (
+    <>
+      <AsyncForm
+        onSubmit={async (f, form) => {
+          const data = new FormData(form)
+          const file = data.get('file')
+          if (file?.size) {
+            const error = validateImage(file)
+            if (error) throw new Error(error)
+          } else data.delete('file')
+          data.set('active', f.active === 'on' ? 'true' : 'false')
+          await act(
+            product.id ? `products/${product.id}/upload` : 'products/upload',
+            data,
+            product.id ? 'PUT' : 'POST',
+          )
+          onSaved()
+        }}
+      >
+        <h2 id="edit-title">
+          {product.id ? 'Edit product' : 'Add a sweet treat'}
+        </h2>
+        <Field
+          label="Product name"
+          name="name"
+          defaultValue={product.name}
+          required
+          maxLength={150}
+        />
+        <label className="field">
+          <span>Description</span>
+          <textarea
+            name="description"
+            defaultValue={product.description}
+            required
+            maxLength={1000}
+          />
+        </label>
+        <div className="form-row">
+          <Field
+            label="Price (R)"
+            name="price"
+            type="number"
+            min="0.01"
+            max="99999999.99"
+            step="0.01"
+            defaultValue={product.price}
+            required
+          />
+          <label className="field">
+            <span>Category</span>
+            <select name="category" defaultValue={product.category}>
+              <option>Cakes</option>
+              <option>Cupcakes</option>
+              <option>Desserts</option>
+            </select>
+          </label>
+        </div>
+        <div className="form-row">
+          <Field
+            label="Size"
+            name="size"
+            defaultValue={product.size}
+            required
+            maxLength={100}
+          />
+          <Field
+            label="Servings"
+            name="servings"
+            defaultValue={product.servings}
+            required
+            maxLength={100}
+          />
+        </div>
+        {product.image && (
+          <img
+            className="product-preview"
+            src={assetUrl(product.image)}
+            alt="Current product photograph"
+          />
+        )}
+        <Field
+          label="Product photograph (JPG/PNG/WebP, up to 2 MB)"
+          name="file"
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+        />
+        <p>
+          {product.id
+            ? 'Choose a photograph to replace the current image, or leave it unchanged.'
+            : 'Choose a photograph to upload with your new product.'}
+        </p>
+        <label className="checkbox">
+          <input
+            name="active"
+            type="checkbox"
+            defaultChecked={product.active}
+          />{' '}
+          Available to order
+        </label>
+        <button className="button dark">Save product</button>
+      </AsyncForm>
     </>
   )
 }
 function OrderTable({ orders, onSelect }) {
-  return orders.length ? (
+  if (!orders.length) return <Empty title="No orders to show" />
+  return (
     <div className="table-wrap">
       <table>
         <thead>
@@ -1072,7 +992,7 @@ function OrderTable({ orders, onSelect }) {
           {orders.map((o) => (
             <tr key={o.id}>
               <td>
-                <strong>{o.id}</strong>
+                <strong>{o.reference}</strong>
                 <small>{o.type}</small>
               </td>
               <td>{o.name}</td>
@@ -1097,7 +1017,5 @@ function OrderTable({ orders, onSelect }) {
         </tbody>
       </table>
     </div>
-  ) : (
-    <Empty title="No orders to show" />
   )
 }

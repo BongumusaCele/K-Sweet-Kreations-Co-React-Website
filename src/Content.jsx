@@ -1,39 +1,34 @@
-﻿import { assetUrl } from './assets'
 import { useState } from 'react'
+import { assetUrl } from './assets'
+import { useWebsite } from './useWebsite'
+import { AsyncForm, Action } from './Forms'
 import { Field, Empty, Badge } from './Customer'
-import { createId } from './store'
 import Dialog from './Dialog'
+
 export function Gallery() {
+  const { store } = useWebsite()
   const [photo, setPhoto] = useState(null)
-  const photos = [
-    ['chocolate', 'Chocolate celebrations'],
-    ['celebration', 'A cake for your special moment'],
-    ['cupcakes', 'Little treats, big smiles'],
-    ['berry', 'Berry-inspired desserts'],
-  ]
+  const photos = store.products.filter((p) => p.image)
   return (
     <>
       <p className="eyebrow">A LITTLE SWEET INSPIRATION</p>
       <h1>Moments worth celebrating</h1>
-      <p className="muted">
-        Preview inspiration photographs. The bakery’s own portfolio will replace
-        these sample images.
-      </p>
+      {!photos.length && <Empty title="New creations are on their way" />}
       <div className="gallery-grid">
-        {photos.map(([id, title]) => (
-          <button key={id} onClick={() => setPhoto({ id, title })}>
-            <img src={assetUrl(`/images/${id}.jpg`)} alt={title} />
-            <span>{title}</span>
+        {photos.map((p) => (
+          <button key={p.id} onClick={() => setPhoto(p)}>
+            <img src={assetUrl(p.image)} alt={p.name} />
+            <span>{p.name}</span>
           </button>
         ))}
       </div>
       {photo && (
         <Dialog labelledBy="gallery-title" onClose={() => setPhoto(null)}>
-          <h2 id="gallery-title">{photo.title}</h2>
+          <h2 id="gallery-title">{photo.name}</h2>
           <img
             className="gallery-large"
-            src={assetUrl(`/images/${photo.id}.jpg`)}
-            alt={photo.title}
+            src={assetUrl(photo.image)}
+            alt={photo.name}
           />
         </Dialog>
       )}
@@ -45,7 +40,7 @@ export function About({ go }) {
     <div className="custom-section about-section">
       <img
         src={assetUrl('/images/celebration.jpg')}
-        alt="A decorated cake for a celebration"
+        alt="A decorated celebration cake"
       />
       <div>
         <p className="eyebrow">MEET K SWEET KREATIONS CO</p>
@@ -56,11 +51,10 @@ export function About({ go }) {
           events and gatherings.
         </p>
         <p>
-          We believe your cake should feel as special as the occasion. Share
-          your inspiration and preferences, and our team will prepare a personal
-          quotation.
+          Share your inspiration and preferences, and our team will prepare a
+          personal quotation.
         </p>
-        <p className="muted">
+        <p>
           Collection only · Monday–Friday 09:00–17:00 · Saturday 09:00–15:00.
           Closed Sundays.
         </p>
@@ -71,19 +65,23 @@ export function About({ go }) {
     </div>
   )
 }
-export function Reviews({ store, setStore, user, requireAccount, notify }) {
+export function Reviews({ requireAccount, notify }) {
+  const { store, user, act } = useWebsite()
   const [sent, setSent] = useState(false)
-  const reviews = (store.reviews || []).filter((r) => r.status === 'Published')
+  const reviews = store.reviews.filter((r) => r.status === 'Published')
   return (
     <>
       <p className="eyebrow">SWEET WORDS</p>
       <h1>A little customer love</h1>
-      <p className="muted">
-        Feedback is reviewed by the bakery before appearing publicly.
-      </p>
+      <p>Feedback is reviewed by the bakery before appearing publicly.</p>
       <div className="checkout-layout">
         <section>
-          {reviews.length ? (
+          {!reviews.length ? (
+            <Empty
+              title="The first sweet words are still to come"
+              text="There are no published reviews yet."
+            />
+          ) : (
             reviews.map((r) => (
               <article className="panel review-card" key={r.id}>
                 <p className="stars" aria-label={`${r.rating} out of 5 stars`}>
@@ -93,17 +91,11 @@ export function Reviews({ store, setStore, user, requireAccount, notify }) {
                 <strong>{r.name}</strong>
               </article>
             ))
-          ) : (
-            <Empty
-              title="The first sweet words are still to come"
-              text="There are no published reviews in this preview yet."
-            />
           )}
         </section>
         {!user ? (
           <section className="panel">
             <h2>Share your experience</h2>
-            <p className="muted">Sign in to submit feedback for review.</p>
             <button
               className="button dark"
               onClick={() => requireAccount('reviews')}
@@ -111,120 +103,94 @@ export function Reviews({ store, setStore, user, requireAccount, notify }) {
               Sign in to leave feedback
             </button>
           </section>
+        ) : user.role !== 'Customer' ? (
+          <p>Customer accounts can submit feedback.</p>
+        ) : sent ? (
+          <Empty
+            title="Thank you for sharing"
+            text="Your feedback is awaiting Admin review."
+          />
         ) : (
-          <form
-            className="panel form"
-            onSubmit={(e) => {
-              e.preventDefault()
-              const f = new FormData(e.currentTarget)
-              setStore((s) => ({
-                ...s,
-                reviews: [
-                  {
-                    id: createId('REVIEW'),
-                    owner: user.email,
-                    name: f.get('name'),
-                    rating: Number(f.get('rating')),
-                    message: f.get('message'),
-                    status: 'Pending',
-                  },
-                  ...(s.reviews || []),
-                ],
-              }))
+          <AsyncForm
+            onSubmit={async (f) => {
+              await act('reviews', { ...f, rating: Number(f.rating) })
               setSent(true)
-              notify('Preview feedback saved for moderation.')
+              notify('Feedback submitted for review.')
             }}
           >
-            {sent ? (
-              <Empty
-                title="Thank you for sharing"
-                text="Your preview feedback is awaiting Admin review."
-              />
-            ) : (
-              <>
-                <h2>Share a sweet moment</h2>
-                <Field
-                  label="Display name"
-                  name="name"
-                  defaultValue={user.name}
-                  required
-                  maxLength={60}
-                />
-                <label className="field">
-                  <span>Your rating</span>
-                  <select name="rating">
-                    <option value="5">5 — Loved it</option>
-                    <option value="4">4 — Very good</option>
-                    <option value="3">3 — Good</option>
-                    <option value="2">2 — Could be better</option>
-                    <option value="1">1 — Disappointed</option>
-                  </select>
-                </label>
-                <label className="field">
-                  <span>Your feedback</span>
-                  <textarea name="message" rows="4" maxLength={1000} required />
-                </label>
-                <button className="button dark">Submit preview feedback</button>
-              </>
-            )}
-          </form>
+            <h2>Share a sweet moment</h2>
+            <Field
+              label="Display name"
+              name="name"
+              defaultValue={user.name}
+              required
+              maxLength={60}
+            />
+            <label className="field">
+              <span>Your rating</span>
+              <select name="rating">
+                {[5, 4, 3, 2, 1].map((r) => (
+                  <option key={r} value={r}>
+                    {r} stars
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="field">
+              <span>Your feedback</span>
+              <textarea name="message" rows="4" maxLength={1000} required />
+            </label>
+            <button className="button dark">Submit feedback</button>
+          </AsyncForm>
         )}
       </div>
     </>
   )
 }
-export function ReviewModeration({ store, setStore, admin }) {
+export function ReviewModeration({ admin }) {
+  const { store, act } = useWebsite()
   return (
     <section className="panel">
       <h2>Customer feedback</h2>
-      <p className="muted">Admin reviews feedback before publishing it.</p>
-      {!(store.reviews || []).length ? (
-        <Empty title="No feedback to review yet" />
-      ) : (
-        (store.reviews || []).map((r) => (
-          <article className="enquiry-row" key={r.id}>
-            <div className="page-heading">
-              <strong>
-                {r.name} · {r.rating}/5
-              </strong>
-              <Badge text={r.status} />
+      <p>Admin reviews feedback before publishing it.</p>
+      {!store.reviews.length && <Empty title="No feedback to review yet" />}
+      {store.reviews.map((r) => (
+        <article className="enquiry-row" key={r.id}>
+          <div className="page-heading">
+            <strong>
+              {r.name} · {r.rating}/5
+            </strong>
+            <Badge text={r.status} />
+          </div>
+          <p>{r.message}</p>
+          {admin && (
+            <div className="button-row">
+              <Action
+                className="button outline"
+                disabled={r.status === 'Published'}
+                onClick={() =>
+                  act(
+                    `reviews/${r.id}/status`,
+                    { status: 'Published' },
+                    'PATCH',
+                  )
+                }
+              >
+                Publish feedback
+              </Action>
+              <Action
+                className="text-button"
+                disabled={r.status === 'Hidden'}
+                onClick={() =>
+                  act(`reviews/${r.id}/status`, { status: 'Hidden' }, 'PATCH')
+                }
+              >
+                Hide feedback
+              </Action>
             </div>
-            <p>{r.message}</p>
-            {admin && (
-              <div className="button-row">
-                <button
-                  className="button outline"
-                  disabled={r.status === 'Published'}
-                  onClick={() =>
-                    setStore((s) => ({
-                      ...s,
-                      reviews: s.reviews.map((i) =>
-                        i.id === r.id ? { ...i, status: 'Published' } : i,
-                      ),
-                    }))
-                  }
-                >
-                  Publish feedback
-                </button>
-                <button
-                  className="text-button"
-                  disabled={r.status === 'Hidden'}
-                  onClick={() =>
-                    setStore((s) => ({
-                      ...s,
-                      reviews: s.reviews.map((i) =>
-                        i.id === r.id ? { ...i, status: 'Hidden' } : i,
-                      ),
-                    }))
-                  }
-                >
-                  Hide feedback
-                </button>
-              </div>
-            )}
-          </article>
-        ))
-      )}
+          )}
+        </article>
+      ))}
     </section>
   )
 }
